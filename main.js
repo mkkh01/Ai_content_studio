@@ -1,61 +1,47 @@
-// ننتظر حتى يتم تحميل محتوى الصفحة بالكامل
-document.addEventListener('DOMContentLoaded', (event) => {
+// تهيئة Firebase - هذا الكود خاص بك
+const firebaseConfig = {
+  apiKey: "AIzaSyAmjrlrjus3lXBsOqCY0xwowahjPOl4XFc",
+  authDomain: "aicontentstudio-4a0fd.firebaseapp.com",
+  projectId: "aicontentstudio-4a0fd",
+  storageBucket: "aicontentstudio-4a0fd.firebasestorage.app",
+  messagingSenderId: "212059531856",
+  appId: "1:212059531856:web:cf259c0a3c73b6bec87f55"
+};
 
-    // Import the functions you need from the SDKs you need
-    import { initializeApp } from "firebase/app";
-    import { getFirestore, collection, addDoc } from "firebase/firestore";
+// تهيئة التطبيق وقاعدة البيانات
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-    // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyAmjrlrjus3lXBsOqCY0xwowahjPOl4XFc",
-      authDomain: "aicontentstudio-4a0fd.firebaseapp.com",
-      projectId: "aicontentstudio-4a0fd",
-      storageBucket: "aicontentstudio-4a0fd.firebasestorage.app",
-      messagingSenderId: "212059531856",
-      appId: "1:212059531856:web:cf259c0a3c73b6bec87f55"
-    };
+// --- ربط زر حفظ المنتج بالوظيفة الخاصة به ---
+const saveButton = document.getElementById('save-product-btn');
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+saveButton.addEventListener('click', () => {
+    const productName = document.getElementById('product-name').value;
+    const productDescription = document.getElementById('product-description').value;
 
-    // رسالة ترحيب للتأكد من أن كل شيء يعمل
-    // لقد قمت بتعطيلها مؤقتًا حتى لا تكون مزعجة في كل مرة
-    // alert("مرحباً بك في استوديو المحتوى الذكي! النظام جاهز.");
-
-    // --- ربط زر حفظ المنتج بالوظيفة الخاصة به ---
-    const saveButton = document.getElementById('save-product-btn');
-    
-    if (saveButton) {
-        saveButton.addEventListener('click', async () => {
-            const productName = document.getElementById('product-name').value;
-            const productDescription = document.getElementById('product-description').value;
-
-            if (!productName || !productDescription) {
-                alert("❌ الرجاء ملء اسم المنتج ووصفه.");
-                return;
-            }
-
-            try {
-                const docRef = await addDoc(collection(db, "products"), {
-                    name: productName,
-                    description: productDescription,
-                    createdAt: new Date()
-                });
-                
-                alert(`✅ تم حفظ المنتج بنجاح في قاعدة البيانات!`);
-                
-                document.getElementById('product-name').value = '';
-                document.getElementById('product-description').value = '';
-
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                alert("❌ حدث خطأ أثناء حفظ المنتج. انظر إلى الـ console لمزيد من التفاصيل.");
-            }
-        });
-    } else {
-        // هذه الرسالة ستظهر فقط إذا كان هناك خطأ في اسم الزر
-        alert("خطأ فادح: لم يتم العثور على زر الحفظ!");
+    if (!productName || !productDescription) {
+        alert("❌ الرجاء ملء اسم المنتج ووصفه.");
+        return;
     }
 
-}); // <-- هذا هو القوس الذي يغلق الدالة الجديدة
+    // محاولة إضافة المنتج إلى قاعدة البيانات
+    db.collection("products").add({
+        name: productName,
+        description: productDescription,
+        createdAt: new Date()
+    })
+    .then((docRef) => {
+        // إذا نجحت العملية
+        alert(`✅ تم حفظ المنتج بنجاح!`);
+        document.getElementById('product-name').value = '';
+        document.getElementById('product-description').value = '';
+    })
+    .catch((error) => {
+        // إذا فشلت العملية
+        console.error("Error adding document: ", error);
+        alert("❌ حدث خطأ أثناء حفظ المنتج. تحقق من الـ console.");
+    });
+});
+
+// رسالة ترحيب أخيرة للتأكد أن الملف يعمل
+alert("النظام يعمل بالطريقة الكلاسيكية!");
