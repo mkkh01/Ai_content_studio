@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>استوديو المحتوى الذكي</title>
     <style>
-        /* نفس كود الـ CSS لم يتغير */
-        body { font-family: sans-serif; background-color: #f0f2f5; color: #1c1e21; margin: 0; padding: 20px; direction: rtl; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; margin: 0; padding: 20px; direction: rtl; }
         .container { max-width: 800px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
         h1, h2 { color: #052c65; border-bottom: 2px solid #e7f3ff; padding-bottom: 10px; margin-bottom: 20px; }
         .section { margin-bottom: 30px; padding: 20px; border: 1px solid #dddfe2; border-radius: 8px; }
@@ -24,18 +23,18 @@
             <h2>🛍️ قسم المنتجات</h2>
             <h3>🎁 إضافة منتج جديد</h3>
             <label for="product-name">اسم المنتج</label>
-            <input type="text" id="product-name" placeholder="مثال: عطر العود الملكي">
+            <input type="text" id="product-name" placeholder="مثال: عطر فواح">
             <label for="product-description">وصف المنتج</label>
-            <textarea id="product-description" placeholder="اشرح مميزات المنتج، مكوناته..."></textarea>
+            <textarea id="product-description" placeholder="اشرح مميزات المنتج..."></textarea>
             <button id="save-product-btn">حفظ المنتج</button>
         </div>
     </div>
 
-    <!-- الخطوة 1: استدعاء مكتبات Firebase مباشرة -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+    <!-- التغيير الجوهري: استدعاء مكتبات Firebase الإصدار 8.10.0 المستقر -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-    <!-- الخطوة 2: استدعاء ملف الكود الخاص بنا (بدون type="module") -->
+    <!-- استدعاء ملف الكود الخاص بنا -->
     <script src="main.js"></script>
 </body>
 </html>
