@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const auth = firebase.auth(); // <-- تهيئة خدمة المصادقة
+    const auth = firebase.auth();
 
     // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- وظائف ربط الحسابات (الطريقة الجديدة والموثوقة) ---
+    // --- وظائف ربط الحسابات (باستخدام إعادة التوجيه) ---
     const renderAccounts = (accounts) => {
         accountsTableBody.innerHTML = '';
         if (!accounts || accounts.length === 0) {
@@ -130,9 +130,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // الخطوة 1: بدء عملية إعادة التوجيه
     const handleFacebookLogin = async () => {
         const provider = new firebase.auth.FacebookAuthProvider();
-        // طلب الأذونات اللازمة من فيسبوك
         provider.addScope('email');
         provider.addScope('public_profile');
         provider.addScope('pages_show_list');
@@ -141,41 +141,44 @@ document.addEventListener('DOMContentLoaded', () => {
         provider.addScope('pages_read_engagement');
 
         try {
-            const result = await auth.signInWithPopup(provider);
-            const credential = result.credential;
-            const accessToken = credential.accessToken; // <-- هذا هو مفتاح النجاح!
+            await auth.signInWithRedirect(provider);
+        } catch (error) {
+            console.error("Redirect Error Start:", error);
+            alert(`❌ حدث خطأ قبل إعادة التوجيه: ${error.message}`);
+        }
+    };
 
-            // الآن نستخدم الـ access token لجلب الصفحات
-            const response = await fetch(`https://graph.facebook.com/me/accounts?fields=name,access_token,instagram_business_account{name,username}&access_token=${accessToken}`);
-            const res = await response.json();
+    // الخطوة 2: التعامل مع النتيجة بعد العودة من فيسبوك
+    const handleRedirectResult = async () => {
+        try {
+            const result = await auth.getRedirectResult();
+            if (result && result.credential) {
+                const accessToken = result.credential.accessToken;
+                const response = await fetch(`https://graph.facebook.com/me/accounts?fields=name,access_token,instagram_business_account{name,username}&access_token=${accessToken}`);
+                const res = await response.json();
 
-            if (res && !res.error) {
-                // مسح الحسابات القديمة
-                const oldAccounts = await db.collection('accounts').get();
-                for (const doc of oldAccounts.docs) {
-                    await db.collection('accounts').doc(doc.id).delete();
-                }
-
-                // إضافة الحسابات الجديدة
-                for (const page of res.data) {
-                    await db.collection('accounts').add({ platform: 'Facebook', id: page.id, name: page.name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-                    if (page.instagram_business_account) {
-                        await db.collection('accounts').add({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                if (res && !res.error) {
+                    const oldAccounts = await db.collection('accounts').get();
+                    for (const doc of oldAccounts.docs) {
+                        await db.collection('accounts').doc(doc.id).delete();
                     }
+                    for (const page of res.data) {
+                        await db.collection('accounts').add({ platform: 'Facebook', id: page.id, name: page.name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        if (page.instagram_business_account) {
+                            await db.collection('accounts').add({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        }
+                    }
+                    alert('✅ تم ربط الحسابات بنجاح!');
+                    await fetchAndRenderAccounts();
+                } else {
+                    console.error("Graph API Error:", res.error);
+                    alert('حدث خطأ أثناء جلب صفحات فيسبوك.');
                 }
-                alert('✅ تم ربط الحسابات بنجاح!');
-                await fetchAndRenderAccounts();
-            } else {
-                console.error("Facebook Graph API Error:", res.error);
-                alert('حدث خطأ أثناء جلب صفحات فيسبوك.');
             }
         } catch (error) {
-            console.error("Firebase Auth Error:", error);
-            // عرض رسالة خطأ أكثر وضوحًا للمستخدم
-            if (error.code === 'auth/popup-closed-by-user') {
-                alert('تم إلغاء عملية الربط.');
-            } else {
-                alert(`❌ حدث خطأ أثناء المصادقة. الرجاء المحاولة مرة أخرى.`);
+            // تجاهل الأخطاء الشائعة التي تحدث عندما لا تكون هناك عملية إعادة توجيه
+            if (error.code !== 'auth/web-storage-unsupported' && error.code !== 'auth/operation-not-supported-in-this-environment' && error.code !== 'auth/cancelled-popup-request') {
+                console.error("Redirect Result Error:", error);
             }
         }
     };
@@ -279,5 +282,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- بدء تشغيل التطبيق ---
     showPage('dashboard-page');
     fetchProducts();
+    handleRedirectResult(); // <-- **مهم جدًا:** التعامل مع نتيجة العودة من فيسبوك
     fetchAndRenderAccounts();
 });
