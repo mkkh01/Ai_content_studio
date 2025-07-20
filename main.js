@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
-    const UPLOAD_PRESET = 'Ai_content_studio'; // <-- تم التحديث هنا
+    const UPLOAD_PRESET = 'Ai_content_studio';
 
     const cloudinaryWidget = cloudinary.createUploadWidget({
         cloudName: CLOUD_NAME,
@@ -23,14 +23,15 @@ document.addEventListener('DOMContentLoaded', () => {
         language: 'ar'
     }, (error, result) => {
         if (!error && result && result.event === "success") {
-            const imageUrl = result.info.secure_url;
-            addUploadedImage(imageUrl);
+            addUploadedImage(result.info.secure_url);
         }
     });
 
-    // --- عناصر الواجهة ---
+    // --- عناصر الواجهة العامة ---
     const navLinks = document.querySelectorAll('.sidebar-nav a');
     const pages = document.querySelectorAll('.page');
+    
+    // --- عناصر واجهة إدارة المنتجات ---
     const saveProductBtn = document.getElementById('save-product-btn');
     const productNameInput = document.getElementById('product-name-input');
     const productNotesInput = document.getElementById('product-notes-input');
@@ -39,19 +40,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelEditBtn = document.getElementById('cancel-edit-btn');
     const imageUploadBtn = document.getElementById('image-upload-btn');
     const imagesPreviewContainer = document.getElementById('product-images-preview');
-
     let uploadedImageUrls = [];
 
-    // --- وظائف الواجهة ---
+    // --- عناصر واجهة ربط الحسابات (جديد) ---
+    const connectFacebookBtn = document.getElementById('connect-facebook-btn');
+    const accountsTableBody = document.querySelector('#accounts-table tbody');
+
+    // --- وظائف الواجهة العامة ---
     const showPage = (pageId) => {
         pages.forEach(page => page.classList.remove('active'));
-        document.getElementById(pageId).classList.add('active');
+        const targetPage = document.getElementById(pageId);
+        if (targetPage) {
+            targetPage.classList.add('active');
+        }
         navLinks.forEach(link => {
             link.classList.toggle('active', link.dataset.page === pageId.replace('-page', ''));
         });
     };
 
-    const resetForm = () => {
+    // --- وظائف إدارة المنتجات ---
+    const resetProductForm = () => {
         productNameInput.value = '';
         productNotesInput.value = '';
         productIdInput.value = '';
@@ -72,27 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
         imagesPreviewContainer.appendChild(imgContainer);
     };
 
-    // --- ربط الأحداث ---
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            showPage(link.dataset.page + '-page');
-        });
-    });
-
-    imageUploadBtn.addEventListener('click', () => {
-        cloudinaryWidget.open();
-    });
-
-    imagesPreviewContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('remove-img-btn')) {
-            const urlToRemove = e.target.dataset.url;
-            uploadedImageUrls = uploadedImageUrls.filter(url => url !== urlToRemove);
-            e.target.parentElement.remove();
-        }
-    });
-
-    // --- وظائف Firestore ---
     const fetchProducts = async () => {
         try {
             const snapshot = await db.collection('products').orderBy('createdAt', 'desc').get();
@@ -115,83 +102,203 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    saveProductBtn.addEventListener('click', async () => {
-        const name = productNameInput.value.trim();
-        const notes = productNotesInput.value.trim();
-        const productId = productIdInput.value;
-
-        if (!name) {
-            alert('الرجاء إدخال اسم المنتج.');
-            return;
-        }
-
-        const productData = {
-            name: name,
-            notes: notes,
-            imageUrls: uploadedImageUrls,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
+    // --- وظائف ربط الحسابات (جديد) ---
+    const fetchAccounts = async () => {
         try {
-            if (productId) { // وضع التعديل
-                await db.collection('products').doc(productId).update(productData);
-                alert('✅ تم تحديث المنتج بنجاح!');
-            } else { // وضع الإضافة
-                productData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                await db.collection('products').add(productData);
-                alert('✅ تم حفظ المنتج بنجاح!');
-            }
-            resetForm();
-            fetchProducts();
+            const snapshot = await db.collection('accounts').orderBy('createdAt', 'desc').get();
+            accountsTableBody.innerHTML = '';
+            snapshot.forEach(doc => {
+                const account = doc.data();
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${account.platform}</td>
+                    <td>${account.name}</td>
+                    <td>
+                        <button class="btn-primary delete-account-btn" data-id="${doc.id}">حذف</button>
+                    </td>
+                `;
+                accountsTableBody.appendChild(row);
+            });
         } catch (error) {
-            console.error("Error saving product: ", error);
-            alert('❌ حدث خطأ أثناء حفظ المنتج.');
+            console.error("Error fetching accounts: ", error);
         }
+    };
+
+    const saveAccountToFirestore = async (accountData) => {
+        try {
+            // تحقق مما إذا كان الحساب موجودًا بالفعل
+            const existingAccountQuery = await db.collection('accounts')
+                .where('platform', '==', accountData.platform)
+                .where('id', '==', accountData.id)
+                .get();
+
+            if (existingAccountQuery.empty) {
+                await db.collection('accounts').add({
+                    ...accountData,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`${accountData.platform} account saved:`, accountData.name);
+            } else {
+                console.log(`${accountData.platform} account already exists:`, accountData.name);
+            }
+        } catch (error) {
+            console.error("Error saving account to Firestore:", error);
+        }
+    };
+
+    // --- ربط الأحداث ---
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            showPage(link.dataset.page + '-page');
+        });
     });
 
-    productsTableBody.addEventListener('click', async (e) => {
-        const target = e.target;
-        const id = target.dataset.id;
-
-        if (target.classList.contains('delete-btn')) {
-            if (confirm('هل أنت متأكد من أنك تريد حذف هذا المنتج؟')) {
-                try {
-                    await db.collection('products').doc(id).delete();
-                    alert('🗑️ تم حذف المنتج بنجاح.');
-                    fetchProducts();
-                } catch (error) {
-                    console.error("Error deleting product: ", error);
-                }
+    // أحداث إدارة المنتجات
+    if (imageUploadBtn) {
+        imageUploadBtn.addEventListener('click', () => cloudinaryWidget.open());
+    }
+    if (imagesPreviewContainer) {
+        imagesPreviewContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-img-btn')) {
+                const urlToRemove = e.target.dataset.url;
+                uploadedImageUrls = uploadedImageUrls.filter(url => url !== urlToRemove);
+                e.target.parentElement.remove();
             }
-        }
+        });
+    }
+    if (saveProductBtn) {
+        saveProductBtn.addEventListener('click', async () => {
+            const name = productNameInput.value.trim();
+            const notes = productNotesInput.value.trim();
+            const productId = productIdInput.value;
 
-        if (target.classList.contains('edit-btn')) {
+            if (!name) { return alert('الرجاء إدخال اسم المنتج.'); }
+
+            const productData = {
+                name,
+                notes,
+                imageUrls: uploadedImageUrls,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
             try {
-                const doc = await db.collection('products').doc(id).get();
-                if (doc.exists) {
-                    const product = doc.data();
-                    productNameInput.value = product.name;
-                    productNotesInput.value = product.notes || '';
-                    productIdInput.value = id;
-                    
-                    imagesPreviewContainer.innerHTML = '';
-                    uploadedImageUrls = product.imageUrls || [];
-                    uploadedImageUrls.forEach(addUploadedImage);
-
-                    saveProductBtn.textContent = 'حفظ التعديلات';
-                    cancelEditBtn.style.display = 'inline-block';
-                    showPage('products-page');
-                    window.scrollTo(0, 0);
+                if (productId) {
+                    await db.collection('products').doc(productId).update(productData);
+                    alert('✅ تم تحديث المنتج بنجاح!');
+                } else {
+                    productData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('products').add(productData);
+                    alert('✅ تم حفظ المنتج بنجاح!');
                 }
+                resetProductForm();
+                fetchProducts();
             } catch (error) {
-                console.error("Error fetching product for edit: ", error);
+                console.error("Error saving product: ", error);
+                alert('❌ حدث خطأ أثناء حفظ المنتج.');
             }
-        }
-    });
-    
-    cancelEditBtn.addEventListener('click', resetForm);
+        });
+    }
+    if (productsTableBody) {
+        productsTableBody.addEventListener('click', async (e) => {
+            const target = e.target;
+            const id = target.dataset.id;
+
+            if (target.classList.contains('delete-btn')) {
+                if (confirm('هل أنت متأكد من أنك تريد حذف هذا المنتج؟')) {
+                    try {
+                        await db.collection('products').doc(id).delete();
+                        alert('🗑️ تم حذف المنتج بنجاح.');
+                        fetchProducts();
+                    } catch (error) { console.error("Error deleting product: ", error); }
+                }
+            }
+
+            if (target.classList.contains('edit-btn')) {
+                try {
+                    const doc = await db.collection('products').doc(id).get();
+                    if (doc.exists) {
+                        const product = doc.data();
+                        productNameInput.value = product.name;
+                        productNotesInput.value = product.notes || '';
+                        productIdInput.value = id;
+                        imagesPreviewContainer.innerHTML = '';
+                        uploadedImageUrls = product.imageUrls || [];
+                        uploadedImageUrls.forEach(addUploadedImage);
+                        saveProductBtn.textContent = 'حفظ التعديلات';
+                        cancelEditBtn.style.display = 'inline-block';
+                        showPage('products-page');
+                        window.scrollTo(0, 0);
+                    }
+                } catch (error) { console.error("Error fetching product for edit: ", error); }
+            }
+        });
+    }
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', resetProductForm);
+    }
+
+    // أحداث ربط الحسابات (جديد)
+    if (connectFacebookBtn) {
+        connectFacebookBtn.addEventListener('click', () => {
+            FB.login(response => {
+                if (response.authResponse) {
+                    console.log('Welcome! Fetching your information.... ');
+                    const accessToken = response.authResponse.accessToken;
+                    // جلب صفحات فيسبوك وحسابات انستغرام المرتبطة
+                    FB.api('/me/accounts?fields=name,access_token,instagram_business_account{name,username}', async (res) => {
+                        if (res && !res.error) {
+                            console.log('Pages and accounts:', res.data);
+                            for (const page of res.data) {
+                                // حفظ صفحة فيسبوك
+                                await saveAccountToFirestore({ platform: 'Facebook', id: page.id, name: page.name });
+                                // حفظ حساب انستغرام إذا كان موجودًا
+                                if (page.instagram_business_account) {
+                                    await saveAccountToFirestore({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username });
+                                }
+                            }
+                            alert('✅ تم ربط حسابات فيسبوك وإنستغرام بنجاح!');
+                            fetchAccounts(); // تحديث الجدول
+                        } else {
+                            console.error('Error fetching pages:', res.error);
+                        }
+                    });
+                } else {
+                    console.log('User cancelled login or did not fully authorize.');
+                }
+            }, { scope: 'pages_show_list,pages_manage_posts,instagram_basic,instagram_content_publish' });
+        });
+    }
+    if (accountsTableBody) {
+        accountsTableBody.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('delete-account-btn')) {
+                const id = e.target.dataset.id;
+                if (confirm('هل أنت متأكد من حذف هذا الحساب؟')) {
+                    try {
+                        await db.collection('accounts').doc(id).delete();
+                        alert('🗑️ تم حذف الحساب بنجاح.');
+                        fetchAccounts();
+                    } catch (error) {
+                        console.error("Error deleting account:", error);
+                    }
+                }
+            }
+        });
+    }
+
+    // --- تهيئة Facebook SDK وبدء تشغيل التطبيق ---
+    window.fbAsyncInit = function() {
+        FB.init({
+            appId: '758978576528127', // <-- ضع معرّف التطبيق الخاص بك هنا
+            cookie: true,
+            xfbml: true,
+            version: 'v19.0'
+        });
+        FB.AppEvents.logPageView();
+    };
 
     // --- بدء تشغيل التطبيق ---
     showPage('dashboard-page');
     fetchProducts();
+    fetchAccounts();
 });
