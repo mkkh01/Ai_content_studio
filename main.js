@@ -1,9 +1,9 @@
-// 1. استيراد الوظائف الضرورية من مكتبات Firebase
-//    نحن نستخدم روابط CDN مباشرة لأننا لا نستخدم أدوات بناء متقدمة الآن
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, addDoc } from "firebase/firestore"; // <-- السطر المهم الذي تم تعديله
 
-// 2. إعدادات الربط مع Firebase (معلوماتك الخاصة)
+// Your web app's Firebase configuration
+// (هذا الكود خاص بك ويجب أن يبقى كما هو)
 const firebaseConfig = {
   apiKey: "AIzaSyAmjrlrjus3lXBsOqCY0xwowahjPOl4XFc",
   authDomain: "aicontentstudio-4a0fd.firebaseapp.com",
@@ -13,48 +13,42 @@ const firebaseConfig = {
   appId: "1:212059531856:web:cf259c0a3c73b6bec87f55"
 };
 
-// 3. تهيئة تطبيق Firebase وقاعدة البيانات
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getFirestore(app); // <-- تهيئة Firestore وإعطائها اسمًا بسيطًا هو db
 
-// رسالة للتأكد من أن كل شيء يعمل عند تحميل الصفحة
-console.log("Firebase تم تهيئته بنجاح!");
+// رسالة ترحيب للتأكد من أن كل شيء يعمل
 alert("مرحباً بك في استوديو المحتوى الذكي! النظام جاهز.");
 
-// 4. تعريف وظيفة حفظ المنتج
-async function saveProduct() {
-    // الحصول على البيانات من حقول الإدخال
-    const productName = document.getElementById('productName').value;
-    const productDesc = document.getElementById('productDesc').value;
+// --- ربط زر حفظ المنتج بالوظيفة الخاصة به ---
+document.getElementById('save-product-btn').addEventListener('click', async () => {
+    const productName = document.getElementById('product-name').value;
+    const productDescription = document.getElementById('product-description').value;
 
     // التحقق من أن الحقول ليست فارغة
-    if (!productName || !productDesc) {
-        alert("الرجاء ملء اسم المنتج ووصفه قبل الحفظ.");
-        return; // إيقاف الوظيفة إذا كانت البيانات ناقصة
+    if (!productName || !productDescription) {
+        alert("❌ الرجاء ملء اسم المنتج ووصفه.");
+        return;
     }
 
     try {
-        // محاولة إضافة مستند جديد إلى "مجموعة" اسمها "products"
+        // محاولة إضافة المنتج إلى قاعدة البيانات
         const docRef = await addDoc(collection(db, "products"), {
             name: productName,
-            description: productDesc,
-            createdAt: new Date() // تسجيل وقت إنشاء المنتج
+            description: productDescription,
+            createdAt: new Date() // إضافة تاريخ الإنشاء
         });
         
-        // إبلاغ المستخدم بالنجاح ومسح الحقول
-        alert("✅ تم حفظ المنتج بنجاح في قاعدة البيانات!");
-        document.getElementById('productName').value = '';
-        document.getElementById('productDesc').value = '';
+        // إذا نجحت العملية
+        alert(`✅ تم حفظ المنتج بنجاح في قاعدة البيانات!`);
+        
+        // تفريغ الحقول بعد الحفظ
+        document.getElementById('product-name').value = '';
+        document.getElementById('product-description').value = '';
 
     } catch (e) {
-        // في حال حدوث خطأ، إبلاغ المستخدم وعرض الخطأ في الـ console
-        console.error("خطأ في إضافة المستند: ", e);
+        // إذا فشلت العملية
+        console.error("Error adding document: ", e);
         alert("❌ حدث خطأ أثناء حفظ المنتج. انظر إلى الـ console لمزيد من التفاصيل.");
     }
-}
-
-// 5. ربط الزر بوظيفة الحفظ
-//    نبحث عن الزر الذي له ID اسمه "saveProductBtn"
-const saveButton = document.getElementById('saveProductBtn');
-//    نضيف "مستمع حدث" ينتظر نقرة المستخدم لتشغيل وظيفة saveProduct
-saveButton.addEventListener('click', saveProduct);
+});
