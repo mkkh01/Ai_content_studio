@@ -3,139 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>استوديو المحتوى الذكي</title>
+    <title>لوحة تحكم | استوديو المحتوى</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #4f46e5;
-            --secondary-color: #6b7280;
-            --background-color: #f9fafb;
-            --card-background: #ffffff;
-            --border-color: #e5e7eb;
-            --success-color: #10b981;
-            --danger-color: #ef4444;
-            --warning-color: #f59e0b;
+            --sidebar-bg: #2d3748; /* رمادي داكن */
+            --sidebar-text: #a0aec0; /* رمادي فاتح للنص */
+            --sidebar-text-hover: #ffffff;
+            --sidebar-active-bg: #4a5568;
+            --main-bg: #f7fafc; /* رمادي فاتح جداً */
+            --card-bg: #ffffff;
+            --primary-color: #e53e3e; /* أحمر */
+            --secondary-color: #ddb837; /* أصفر */
+            --text-dark: #2d3748;
+            --text-light: #718096;
         }
         body {
-            font-family: 'Tajawal', sans-serif;
-            background-color: var(--background-color);
-            color: #111827;
+            font-family: 'Cairo', sans-serif;
             margin: 0;
-            padding: 2rem;
+            background-color: var(--main-bg);
         }
-        .container { max-width: 900px; margin: 0 auto; }
-        .header { text-align: center; margin-bottom: 3rem; }
-        .header h1 { font-size: 2.5rem; color: #1f2937; font-weight: 700; }
-        .header p { font-size: 1.125rem; color: var(--secondary-color); }
-        .card {
-            background-color: var(--card-background);
-            border-radius: 0.75rem;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
         }
-        .card h2 { font-size: 1.5rem; margin-top: 0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; }
-        input, textarea {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border-color);
+        /* --- الشريط الجانبي --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .sidebar-nav a {
+            display: block;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            padding: 1rem;
             border-radius: 0.5rem;
-            box-sizing: border-box;
-            margin-bottom: 1rem;
-            transition: box-shadow 0.2s, border-color 0.2s;
+            margin-bottom: 0.5rem;
+            transition: background-color 0.2s, color 0.2s;
         }
-        input:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
-        .btn {
+        .sidebar-nav a:hover {
+            background-color: var(--sidebar-active-bg);
+            color: var(--sidebar-text-hover);
+        }
+        .sidebar-nav a.active {
             background-color: var(--primary-color);
             color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
+        }
+        .sidebar-footer {
+            margin-top: auto;
+        }
+        /* --- المحتوى الرئيسي --- */
+        .main-content {
+            flex-grow: 1;
+            padding: 2rem;
+        }
+        .main-header {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 2rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        .stat-card .label {
             font-size: 1rem;
-            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+        .stat-card .action-btn {
+            background-color: var(--secondary-color);
+            color: var(--text-dark);
+            border: none;
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
         }
-        .btn:hover { background-color: #4338ca; }
-        .product-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 0;
-            border-bottom: 1px solid var(--border-color);
+        .content-card {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
         }
-        .product-item:last-child { border-bottom: none; }
-        .product-item p { margin: 0; color: var(--secondary-color); }
-        .action-btn { background: none; border: none; cursor: pointer; padding: 0.5rem; }
-        .action-btn svg { width: 1.25rem; height: 1.25rem; }
-        .btn-edit svg { color: var(--warning-color); }
-        .btn-delete svg { color: var(--danger-color); }
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.5); display: none;
-            justify-content: center; align-items: center; z-index: 1000;
+        .content-card h3 { margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: right; padding: 1rem; border-bottom: 1px solid #e2e8f0; }
+        th { font-weight: 600; color: var(--text-light); }
+        .action-btn-table {
+            background: none; border: 1px solid #cbd5e0; color: #4a5568;
+            padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; margin-left: 0.5rem;
         }
-        .modal-content {
-            background: white; padding: 2rem; border-radius: 0.75rem;
-            width: 90%; max-width: 500px;
-        }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-        .btn-secondary { background-color: var(--secondary-color); }
-        .btn-secondary:hover { background-color: #5a616d; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>🚀 استوديو المحتوى الذكي</h1>
-            <p>مساحة عملك الإبداعية لإدارة وأتمتة محتوى منتجاتك بكل سهولة</p>
-        </header>
+    <div class="dashboard-container">
+        <!-- الشريط الجانبي -->
+        <aside class="sidebar">
+            <header class="sidebar-header">
+                لوحة التحكم
+            </header>
+            <nav class="sidebar-nav">
+                <a href="#" class="active">📊 لوحة الإحصائيات</a>
+                <a href="#">🛍️ إدارة المنتجات</a>
+                <a href="#">🔗 ربط الحسابات</a>
+                <a href="#">⚙️ الإعدادات</a>
+            </nav>
+            <footer class="sidebar-footer">
+                <a href="#">تسجيل الخروج</a>
+            </footer>
+        </aside>
 
-        <div class="card">
-            <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:1.5rem; height:1.5rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                إضافة منتج جديد
-            </h2>
-            <label for="product-name">اسم المنتج</label>
-            <input type="text" id="product-name" placeholder="مثال: عطر العود الملكي">
-            <label for="product-description">وصف المنتج</label>
-            <textarea id="product-description" rows="4" placeholder="اشرح مميزات المنتج، مكوناته، واستخداماته..."></textarea>
-            <button id="save-product-btn" class="btn">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:1.25rem; height:1.25rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                إضافة المنتج
-            </button>
-        </div>
+        <!-- المحتوى الرئيسي -->
+        <main class="main-content">
+            <h2 class="main-header">لوحة الإحصائيات</h2>
+            
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div id="products-count" class="number">0</div>
+                    <div class="label">منتج محفوظ</div>
+                    <button class="action-btn">إدارة المنتجات</button>
+                </div>
+                <div class="stat-card">
+                    <div id="accounts-count" class="number">0</div>
+                    <div class="label">حساب مربوط</div>
+                    <button class="action-btn">ربط حساب</button>
+                </div>
+                <!-- يمكن إضافة بطاقات أخرى هنا -->
+            </section>
 
-        <div class="card">
-            <h2>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:1.5rem; height:1.5rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
-                قائمة منتجاتك
-            </h2>
-            <div id="products-list-container"><p>يتم الآن تحميل المنتجات...</p></div>
-        </div>
-    </div>
-
-    <!-- نافذة التعديل المنبثقة -->
-    <div id="edit-modal-overlay" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>✏️ تعديل المنتج</h2>
-                <button id="close-modal-btn" class="action-btn">&times;</button>
-            </div>
-            <input type="hidden" id="edit-product-id">
-            <label for="edit-product-name">اسم المنتج</label>
-            <input type="text" id="edit-product-name">
-            <label for="edit-product-description">وصف المنتج</label>
-            <textarea id="edit-product-description" rows="4"></textarea>
-            <button id="update-product-btn" class="btn">حفظ التعديلات</button>
-            <button id="cancel-modal-btn" class="btn btn-secondary">إلغاء</button>
-        </div>
+            <section class="content-card">
+                <h3>آخر المنتجات المضافة</h3>
+                <table id="products-table">
+                    <thead>
+                        <tr>
+                            <th>اسم المنتج</th>
+                            <th>الوصف</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="products-table-body">
+                        <!-- سيتم ملء المنتجات هنا بواسطة JavaScript -->
+                    </tbody>
+                </table>
+            </section>
+        </main>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
