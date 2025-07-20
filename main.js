@@ -241,22 +241,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- تهيئة Facebook SDK وبدء تشغيل التطبيق ---
     if (connectFacebookBtn) {
-        connectFacebookBtn.disabled = true; // تعطيل الزر في البداية
+        connectFacebookBtn.disabled = true;
     }
 
     window.fbAsyncInit = function() {
         FB.init({
-            appId: '758978576528127', // <-- معرّف التطبيق الخاص بك
+            appId: '758978576528127',
             cookie: true,
             xfbml: true,
             version: 'v19.0'
         });
         FB.AppEvents.logPageView();
 
-        // *** التعديل الحاسم هنا ***
-        // تفعيل الزر وربط الحدث فقط بعد التأكد من تهيئة SDK
         if (connectFacebookBtn) {
-            connectFacebookBtn.disabled = false; // تفعيل الزر
+            connectFacebookBtn.disabled = false;
             connectFacebookBtn.addEventListener('click', () => {
                 FB.login(response => {
                     if (response.authResponse) {
@@ -279,7 +277,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         console.log('User cancelled login or did not fully authorize.');
                     }
-                }, { scope: 'pages_show_list,pages_manage_posts,instagram_basic,instagram_content_publish' });
+                }, { 
+                    // الكود يطلب فقط الأذونات المتاحة الآن
+                    scope: 'pages_show_list,pages_manage_posts' 
+                });
             });
         }
     };
