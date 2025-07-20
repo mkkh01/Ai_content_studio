@@ -15,81 +15,101 @@
         }
         body { font-family: 'Cairo', sans-serif; margin: 0; background-color: var(--main-bg); }
         .dashboard-container { display: flex; min-height: 100vh; }
-        .sidebar {
-            width: 260px; background-color: var(--sidebar-bg); color: var(--sidebar-text); padding: 1.5rem;
-            display: flex; flex-direction: column;
-        }
+        .sidebar { width: 260px; background-color: var(--sidebar-bg); color: var(--sidebar-text); padding: 1.5rem; display: flex; flex-direction: column; }
         .sidebar-header { font-size: 1.5rem; font-weight: 700; color: white; text-align: center; margin-bottom: 2.5rem; }
-        .sidebar-nav a { display: block; color: var(--sidebar-text); text-decoration: none; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; transition: all 0.2s; }
+        .sidebar-nav a { display: flex; align-items: center; gap: 0.75rem; color: var(--sidebar-text); text-decoration: none; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; transition: all 0.2s; }
         .sidebar-nav a:hover { background-color: var(--sidebar-active-bg); color: var(--sidebar-text-hover); }
         .sidebar-nav a.active { background-color: var(--primary-color); color: white; }
         .main-content { flex-grow: 1; padding: 2rem; }
         .main-header { font-size: 1.75rem; font-weight: 600; color: var(--text-dark); margin-bottom: 2rem; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-        .stat-card { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-dark); padding: 1.5rem; border-radius: 0.75rem; text-align: center; }
-        .stat-card .number { font-size: 2.5rem; font-weight: 700; color: var(--primary-color); }
-        .stat-card .label { font-size: 1rem; color: var(--text-light); }
-        .content-card { background-color: var(--card-bg); padding: 2rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .content-card h3 { margin-top: 0; }
+        .content-card { background-color: var(--card-bg); border-radius: 0.75rem; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
+        .page { display: none; }
+        .page.active { display: block; }
+        input, textarea, select { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
+        button { padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-secondary { background-color: var(--text-light); color: white; }
+        #image-upload-btn { background-color: var(--secondary-color); color: white; margin-bottom: 1rem; }
+        #product-images-preview { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .img-preview-container { position: relative; }
+        .img-preview-container img { width: 100px; height: 100px; object-fit: cover; border-radius: 0.5rem; }
+        .remove-img-btn { position: absolute; top: -5px; right: -5px; background: black; color: white; border-radius: 50%; width: 20px; height: 20px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: right; padding: 1rem; border-bottom: 1px solid var(--border-color); }
         th { font-weight: 600; color: var(--text-light); }
-        .action-btn-table { background: none; border: 1px solid #cbd5e0; color: #4a5568; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; margin-left: 0.5rem; }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
-        <!-- الشريط الجانبي -->
         <aside class="sidebar">
-            <header class="sidebar-header">لوحة التحكم</header>
+            <h1 class="sidebar-header">🚀 استوديو المحتوى</h1>
             <nav class="sidebar-nav">
-                <a href="#" class="active" data-page="dashboard">📊 لوحة الإحصائيات</a>
+                <a href="#" data-page="dashboard">📊 لوحة الإحصائيات</a>
                 <a href="#" data-page="products">🛍️ إدارة المنتجات</a>
                 <a href="#" data-page="accounts">🔗 ربط الحسابات</a>
+                <a href="#" data-page="scheduler">🗓️ جدولة النشر</a>
+                <a href="#" data-page="analytics">📈 تحليل الأداء</a>
             </nav>
         </aside>
-
-        <!-- المحتوى الرئيسي -->
         <main class="main-content">
-            <!-- سيتم تحميل محتوى الصفحات هنا -->
             <div id="page-content">
-                <!-- صفحة لوحة الإحصائيات (الافتراضية) -->
-                <div id="dashboard-page">
+                <!-- صفحة لوحة الإحصائيات -->
+                <div id="dashboard-page" class="page">
                     <h2 class="main-header">مرحباً بك في استوديو المحتوى الذكي</h2>
-                    <section class="stats-grid">
-                        <div class="stat-card"><div id="products-count" class="number">0</div><div class="label">منتج محفوظ</div></div>
-                        <div class="stat-card"><div id="accounts-count" class="number">0</div><div class="label">حساب مربوط</div></div>
-                        <div class="stat-card"><div id="posts-today" class="number">0</div><div class="label">منشورات اليوم</div></div>
-                    </section>
-                    <section class="content-card">
-                        <h3>آخر المنتجات المضافة</h3>
-                        <table id="products-table">
-                            <thead><tr><th>اسم المنتج</th><th>ملاحظات النشر</th><th>إجراءات</th></tr></thead>
-                            <tbody id="products-table-body"></tbody>
-                        </table>
-                    </section>
                 </div>
 
-                <!-- صفحة إدارة المنتجات (مخفية افتراضيًا) -->
-                <div id="products-page" style="display: none;">
+                <!-- صفحة إدارة المنتجات -->
+                <div id="products-page" class="page">
                     <h2 class="main-header">إدارة المنتجات</h2>
                     <section class="content-card">
                         <h3>إضافة / تعديل منتج</h3>
                         <input type="hidden" id="product-id">
                         <label for="product-name">اسم المنتج</label>
-                        <input type="text" id="product-name-input" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:0.5rem; margin-bottom:1rem; box-sizing: border-box;">
-                        <label for="product-notes">ملاحظات النشر (اختياري)</label>
-                        <textarea id="product-notes-input" rows="4" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:0.5rem; margin-bottom:1rem; box-sizing: border-box;" placeholder="مثال: ركز على أن العطر مناسب للجنسين"></textarea>
-                        <button id="save-product-btn" class="action-btn-table">حفظ المنتج</button>
-                        <button id="cancel-edit-btn" class="action-btn-table" style="display:none;">إلغاء التعديل</button>
+                        <input type="text" id="product-name-input">
+                        
+                        <label for="product-notes">ملاحظات النشر (للمانوس)</label>
+                        <textarea id="product-notes-input" rows="4"></textarea>
+
+                        <label>صور المنتج</label>
+                        <button id="image-upload-btn">📂 اختر الصور</button>
+                        <div id="product-images-preview"></div>
+
+                        <button id="save-product-btn" class="btn-primary">حفظ المنتج</button>
+                        <button id="cancel-edit-btn" class="btn-secondary" style="display: none;">إلغاء التعديل</button>
+                    </section>
+                    <section class="content-card" style="margin-top: 2rem;">
+                        <h3>آخر المنتجات المضافة</h3>
+                        <table id="products-table">
+                            <thead>
+                                <tr>
+                                    <th>اسم المنتج</th>
+                                    <th>الصور</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- سيتم ملء المنتجات هنا -->
+                            </tbody>
+                        </table>
                     </section>
                 </div>
+
+                <!-- باقي الصفحات (فارغة حاليًا) -->
+                <div id="accounts-page" class="page"><h2 class="main-header">ربط الحسابات</h2></div>
+                <div id="scheduler-page" class="page"><h2 class="main-header">جدولة النشر</h2></div>
+                <div id="analytics-page" class="page"><h2 class="main-header">تحليل الأداء</h2></div>
             </div>
         </main>
     </div>
 
+    <!-- مكتبات Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    
+    <!-- مكتبة Cloudinary للرفع -->
+    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
+    
+    <!-- الكود الخاص بنا -->
     <script src="main.js"></script>
 </body>
 </html>
