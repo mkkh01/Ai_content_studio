@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
-    const UPLOAD_PRESET = 'ml_default'; // سنحتاج لإنشاء هذا الإعداد في Cloudinary
+    const UPLOAD_PRESET = 'Ai_content_studio'; // <-- تم التحديث هنا
 
     const cloudinaryWidget = cloudinary.createUploadWidget({
         cloudName: CLOUD_NAME,
