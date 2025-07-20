@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore();
     const auth = firebase.auth(); // <-- تهيئة خدمة المصادقة
 
-    // --- تهيئة Cloudinary (بدون تغيير) ---
+    // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
     const UPLOAD_PRESET = 'Ai_content_studio';
     const cloudinaryWidget = cloudinary.createUploadWidget({
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- وظائف إدارة المنتجات (بدون تغيير) ---
+    // --- وظائف إدارة المنتجات ---
     const resetProductForm = () => {
         productNameInput.value = '';
         productNotesInput.value = '';
@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         productNameInput.value = product.name;
                         productNotesInput.value = product.notes || '';
                         productIdInput.value = id;
-imagesPreviewContainer.innerHTML = '';
+                        imagesPreviewContainer.innerHTML = '';
                         uploadedImageUrls = product.imageUrls || [];
                         uploadedImageUrls.forEach(addUploadedImage);
                         saveProductBtn.textContent = 'حفظ التعديلات';
