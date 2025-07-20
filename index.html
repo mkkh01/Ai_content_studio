@@ -94,8 +94,43 @@
                     </section>
                 </div>
 
-                <!-- باقي الصفحات (فارغة حاليًا) -->
-                <div id="accounts-page" class="page"><h2 class="main-header">ربط الحسابات</h2></div>
+                <!-- صفحة ربط الحسابات (مُحدثة) -->
+                <div id="accounts-page" class="page">
+                    <h2 class="main-header">🔗 ربط حسابات التواصل الاجتماعي</h2>
+                    
+                    <section class="content-card">
+                        <h3>اختر المنصة للربط</h3>
+                        <p>اربط حساباتك لبدء جدولة المحتوى والنشر مباشرة من الاستوديو.</p>
+                        
+                        <div id="connection-buttons">
+                            <button id="connect-facebook-btn" class="btn-primary" style="width: 100%; margin-bottom: 1rem; background-color: #1877F2;">
+                                🔗 الربط باستخدام فيسبوك وإنستغرام
+                            </button>
+                            
+                            <button id="connect-tiktok-btn" class="btn-secondary" style="width: 100%; background-color: #000000;" disabled>
+                                🔗 الربط باستخدام تيك توك (قريبًا)
+                            </button>
+                        </div>
+                    </section>
+                
+                    <section class="content-card" style="margin-top: 2rem;">
+                        <h3>الحسابات المرتبطة حاليًا</h3>
+                        <table id="accounts-table">
+                            <thead>
+                                <tr>
+                                    <th>المنصة</th>
+                                    <th>اسم الحساب</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- سيتم ملء الحسابات هنا عبر JavaScript -->
+                            </tbody>
+                        </table>
+                    </section>
+                </div>
+
+                <!-- باقي الصفحات -->
                 <div id="scheduler-page" class="page"><h2 class="main-header">جدولة النشر</h2></div>
                 <div id="analytics-page" class="page"><h2 class="main-header">تحليل الأداء</h2></div>
             </div>
@@ -109,6 +144,9 @@
     <!-- مكتبة Cloudinary للرفع -->
     <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
     
+    <!-- Facebook SDK (مهم جدًا) -->
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+
     <!-- الكود الخاص بنا -->
     <script src="main.js"></script>
 </body>
