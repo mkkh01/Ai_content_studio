@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
+    console.log("Firebase Initialized.");
 
     // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
@@ -98,8 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- وظائف ربط الحسابات (باستخدام إعادة التوجيه) ---
+    // --- وظائف ربط الحسابات (مع رسائل تشخيص) ---
     const renderAccounts = (accounts) => {
+        console.log("Rendering accounts:", accounts);
         accountsTableBody.innerHTML = '';
         if (!accounts || accounts.length === 0) {
             accountsTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">لا توجد حسابات مرتبطة حاليًا.</td></tr>';
@@ -120,9 +122,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const fetchAndRenderAccounts = async () => {
+        console.log("Fetching accounts from Firestore...");
         try {
             const snapshot = await db.collection('accounts').orderBy('createdAt', 'desc').get();
             const accounts = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+            console.log("Accounts fetched successfully:", accounts);
             renderAccounts(accounts);
         } catch (error) {
             console.error("Firestore fetch error:", error);
@@ -130,8 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // الخطوة 1: بدء عملية إعادة التوجيه
     const handleFacebookLogin = async () => {
+        console.log("Facebook connect button clicked. Starting redirect flow...");
         const provider = new firebase.auth.FacebookAuthProvider();
         provider.addScope('email');
         provider.addScope('public_profile');
@@ -148,24 +152,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // الخطوة 2: التعامل مع النتيجة بعد العودة من فيسبوك
     const handleRedirectResult = async () => {
+        console.log("Checking for redirect result...");
         try {
             const result = await auth.getRedirectResult();
+            console.log("Redirect result object:", result);
+
             if (result && result.credential) {
+                console.log("Redirect result contains credential. Proceeding...");
                 const accessToken = result.credential.accessToken;
+                console.log("Access Token obtained.");
+
                 const response = await fetch(`https://graph.facebook.com/me/accounts?fields=name,access_token,instagram_business_account{name,username}&access_token=${accessToken}`);
                 const res = await response.json();
+                console.log("Graph API response:", res);
 
                 if (res && !res.error) {
+                    console.log("Graph API call successful. Deleting old accounts...");
                     const oldAccounts = await db.collection('accounts').get();
                     for (const doc of oldAccounts.docs) {
                         await db.collection('accounts').doc(doc.id).delete();
                     }
+                    console.log("Old accounts deleted. Adding new accounts...");
+
                     for (const page of res.data) {
                         await db.collection('accounts').add({ platform: 'Facebook', id: page.id, name: page.name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        console.log(`Added Facebook page: ${page.name}`);
                         if (page.instagram_business_account) {
                             await db.collection('accounts').add({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                            console.log(`Added Instagram account: ${page.instagram_business_account.username}`);
                         }
                     }
                     alert('✅ تم ربط الحسابات بنجاح!');
@@ -174,12 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error("Graph API Error:", res.error);
                     alert('حدث خطأ أثناء جلب صفحات فيسبوك.');
                 }
+            } else {
+                console.log("No redirect result found. This is normal on initial page load.");
             }
         } catch (error) {
-            // تجاهل الأخطاء الشائعة التي تحدث عندما لا تكون هناك عملية إعادة توجيه
-            if (error.code !== 'auth/web-storage-unsupported' && error.code !== 'auth/operation-not-supported-in-this-environment' && error.code !== 'auth/cancelled-popup-request') {
-                console.error("Redirect Result Error:", error);
-            }
+            console.error("!!! CRITICAL REDIRECT ERROR !!!", error);
         }
     };
 
@@ -191,7 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // أحداث إدارة المنتجات
     if (imageUploadBtn) imageUploadBtn.addEventListener('click', () => cloudinaryWidget.open());
     if (imagesPreviewContainer) {
         imagesPreviewContainer.addEventListener('click', (e) => {
@@ -260,7 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (cancelEditBtn) cancelEditBtn.addEventListener('click', resetProductForm);
 
-    // أحداث ربط الحسابات
     if (connectFacebookBtn) {
         connectFacebookBtn.addEventListener('click', handleFacebookLogin);
     }
@@ -280,8 +292,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- بدء تشغيل التطبيق ---
+    console.log("App Starting...");
     showPage('dashboard-page');
     fetchProducts();
-    handleRedirectResult(); // <-- **مهم جدًا:** التعامل مع نتيجة العودة من فيسبوك
+    handleRedirectResult();
     fetchAndRenderAccounts();
+    console.log("App Started.");
 });
