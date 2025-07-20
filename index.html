@@ -4,68 +4,140 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>استوديو المحتوى الذكي</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; margin: 0; direction: rtl; }
-        .main-container { display: flex; min-height: 100vh; }
-        .sidebar { width: 300px; background-color: #ffffff; padding: 20px; box-shadow: -2px 0 5px rgba(0,0,0,0.05); border-left: 1px solid #dddfe2; }
-        .content { flex-grow: 1; padding: 20px; }
-        h1, h2 { color: #052c65; border-bottom: 2px solid #e7f3ff; padding-bottom: 10px; margin-top: 0; }
-        .section { background-color: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        label { display: block; margin-bottom: 8px; font-weight: 600; color: #606770; }
-        input[type="text"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccd0d5; border-radius: 6px; box-sizing: border-box; margin-bottom: 15px; }
-        button { background-color: #1877f2; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; margin-left: 5px; }
-        button:hover { background-color: #166fe5; }
-        .btn-delete { background-color: #fa3e3e; }
-        .btn-delete:hover { background-color: #e02828; }
-        .btn-edit { background-color: #f0ad4e; }
-        .btn-edit:hover { background-color: #ec971f; }
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid #dddfe2; border-radius: 6px; margin-bottom: 10px; }
-        .list-item-content { flex-grow: 1; }
-        .list-item-actions { flex-shrink: 0; }
+        :root {
+            --primary-color: #4f46e5;
+            --secondary-color: #6b7280;
+            --background-color: #f9fafb;
+            --card-background: #ffffff;
+            --border-color: #e5e7eb;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+        }
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: var(--background-color);
+            color: #111827;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 3rem; }
+        .header h1 { font-size: 2.5rem; color: #1f2937; font-weight: 700; }
+        .header p { font-size: 1.125rem; color: var(--secondary-color); }
+        .card {
+            background-color: var(--card-background);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+        }
+        .card h2 { font-size: 1.5rem; margin-top: 0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; }
+        input, textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            box-sizing: border-box;
+            margin-bottom: 1rem;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        input:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn:hover { background-color: #4338ca; }
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .product-item:last-child { border-bottom: none; }
+        .product-item p { margin: 0; color: var(--secondary-color); }
+        .action-btn { background: none; border: none; cursor: pointer; padding: 0.5rem; }
+        .action-btn svg { width: 1.25rem; height: 1.25rem; }
+        .btn-edit svg { color: var(--warning-color); }
+        .btn-delete svg { color: var(--danger-color); }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: white; padding: 2rem; border-radius: 0.75rem;
+            width: 90%; max-width: 500px;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .btn-secondary:hover { background-color: #5a616d; }
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <!-- الشريط الجانبي -->
-        <div class="sidebar">
-            <h1>🚀 استوديو المحتوى</h1>
-            <div class="section">
-                <h2>🔗 ربط الحسابات</h2>
-                <label for="platform-select">اختر المنصة</label>
-                <select id="platform-select">
-                    <option value="facebook">Facebook</option>
-                    <option value="instagram">Instagram</option>
-                </select>
-                <button id="connect-account-btn">ربط حساب جديد</button>
-            </div>
-            <div class="section">
-                <h2>⚙️ الإعدادات</h2>
-                <label for="api-key">مفتاح OpenAI API</label>
-                <input type="text" id="api-key" placeholder="يبدأ بـ ...sk">
-            </div>
+    <div class="container">
+        <header class="header">
+            <h1>🚀 استوديو المحتوى الذكي</h1>
+            <p>مساحة عملك الإبداعية لإدارة وأتمتة محتوى منتجاتك بكل سهولة</p>
+        </header>
+
+        <div class="card">
+            <h2>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:1.5rem; height:1.5rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                إضافة منتج جديد
+            </h2>
+            <label for="product-name">اسم المنتج</label>
+            <input type="text" id="product-name" placeholder="مثال: عطر العود الملكي">
+            <label for="product-description">وصف المنتج</label>
+            <textarea id="product-description" rows="4" placeholder="اشرح مميزات المنتج، مكوناته، واستخداماته..."></textarea>
+            <button id="save-product-btn" class="btn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:1.25rem; height:1.25rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                إضافة المنتج
+            </button>
         </div>
 
-        <!-- المحتوى الرئيسي -->
-        <div class="content">
-            <div class="section" id="add-product-section">
-                <h2 id="form-title">🎁 إضافة منتج جديد</h2>
-                <input type="hidden" id="product-id"> <!-- حقل مخفي لتخزين ID المنتج عند التعديل -->
-                <label for="product-name">اسم المنتج</label>
-                <input type="text" id="product-name" placeholder="مثال: عطر فواح">
-                <label for="product-description">وصف المنتج</label>
-                <textarea id="product-description" placeholder="اشرح مميزات المنتج..."></textarea>
-                <button id="save-product-btn">حفظ</button>
-                <button id="cancel-edit-btn" style="display:none; background-color: #6c757d;">إلغاء التعديل</button>
-            </div>
-
-            <div class="section" id="products-list-section">
-                <h2>🛍️ قائمة منتجاتك</h2>
-                <div id="products-list-container"><p>يتم الآن تحميل المنتجات...</p></div>
-            </div>
+        <div class="card">
+            <h2>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:1.5rem; height:1.5rem;"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+                قائمة منتجاتك
+            </h2>
+            <div id="products-list-container"><p>يتم الآن تحميل المنتجات...</p></div>
         </div>
     </div>
 
-    <!-- استدعاء مكتبات Firebase الإصدار 8.10.0 المستقر -->
+    <!-- نافذة التعديل المنبثقة -->
+    <div id="edit-modal-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ تعديل المنتج</h2>
+                <button id="close-modal-btn" class="action-btn">&times;</button>
+            </div>
+            <input type="hidden" id="edit-product-id">
+            <label for="edit-product-name">اسم المنتج</label>
+            <input type="text" id="edit-product-name">
+            <label for="edit-product-description">وصف المنتج</label>
+            <textarea id="edit-product-description" rows="4"></textarea>
+            <button id="update-product-btn" class="btn">حفظ التعديلات</button>
+            <button id="cancel-modal-btn" class="btn btn-secondary">إلغاء</button>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="main.js"></script>
