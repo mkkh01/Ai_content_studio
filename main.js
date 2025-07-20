@@ -10,8 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth(); // <-- تهيئة خدمة المصادقة
 
-    // --- تهيئة Cloudinary ---
+    // --- تهيئة Cloudinary (بدون تغيير) ---
     const CLOUD_NAME = 'dbd04hozw';
     const UPLOAD_PRESET = 'Ai_content_studio';
     const cloudinaryWidget = cloudinary.createUploadWidget({
@@ -53,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- وظائف إدارة المنتجات ---
+    // --- وظائف إدارة المنتجات (بدون تغيير) ---
     const resetProductForm = () => {
         productNameInput.value = '';
         productNotesInput.value = '';
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- وظائف ربط الحسابات (مبسطة ومحسنة) ---
+    // --- وظائف ربط الحسابات (الطريقة الجديدة والموثوقة) ---
     const renderAccounts = (accounts) => {
         accountsTableBody.innerHTML = '';
         if (!accounts || accounts.length === 0) {
@@ -125,41 +126,58 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAccounts(accounts);
         } catch (error) {
             console.error("Firestore fetch error:", error);
-            renderAccounts([]); // عرض جدول فارغ في حالة الخطأ
+            renderAccounts([]);
         }
     };
 
-    // --- وظيفة الربط الرئيسية ---
-    const handleFacebookLogin = () => {
-        const scope = 'email,public_profile,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_read_engagement';
-        FB.login(async (response) => {
-            if (response.authResponse) {
-                FB.api('/me/accounts?fields=name,access_token,instagram_business_account{name,username}', async (res) => {
-                    if (res && !res.error) {
-                        // مسح الحسابات القديمة قبل إضافة الجديدة لمنع التكرار
-                        const oldAccounts = await db.collection('accounts').get();
-                        for (const doc of oldAccounts.docs) {
-                            await db.collection('accounts').doc(doc.id).delete();
-                        }
+    const handleFacebookLogin = async () => {
+        const provider = new firebase.auth.FacebookAuthProvider();
+        // طلب الأذونات اللازمة من فيسبوك
+        provider.addScope('email');
+        provider.addScope('public_profile');
+        provider.addScope('pages_show_list');
+        provider.addScope('pages_manage_posts');
+        provider.addScope('pages_manage_engagement');
+        provider.addScope('pages_read_engagement');
 
-                        // إضافة الحسابات الجديدة
-                        for (const page of res.data) {
-                            await db.collection('accounts').add({ platform: 'Facebook', id: page.id, name: page.name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-                            if (page.instagram_business_account) {
-                                await db.collection('accounts').add({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-                            }
-                        }
-                        alert('✅ تم ربط الحسابات بنجاح!');
-                        await fetchAndRenderAccounts();
-                    } else {
-                        console.error("Facebook API Error:", res.error);
-                        alert('حدث خطأ أثناء جلب صفحات فيسبوك.');
+        try {
+            const result = await auth.signInWithPopup(provider);
+            const credential = result.credential;
+            const accessToken = credential.accessToken; // <-- هذا هو مفتاح النجاح!
+
+            // الآن نستخدم الـ access token لجلب الصفحات
+            const response = await fetch(`https://graph.facebook.com/me/accounts?fields=name,access_token,instagram_business_account{name,username}&access_token=${accessToken}`);
+            const res = await response.json();
+
+            if (res && !res.error) {
+                // مسح الحسابات القديمة
+                const oldAccounts = await db.collection('accounts').get();
+                for (const doc of oldAccounts.docs) {
+                    await db.collection('accounts').doc(doc.id).delete();
+                }
+
+                // إضافة الحسابات الجديدة
+                for (const page of res.data) {
+                    await db.collection('accounts').add({ platform: 'Facebook', id: page.id, name: page.name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                    if (page.instagram_business_account) {
+                        await db.collection('accounts').add({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
                     }
-                });
+                }
+                alert('✅ تم ربط الحسابات بنجاح!');
+                await fetchAndRenderAccounts();
             } else {
-                console.log('User cancelled login or did not fully authorize.');
+                console.error("Facebook Graph API Error:", res.error);
+                alert('حدث خطأ أثناء جلب صفحات فيسبوك.');
             }
-        }, { scope });
+        } catch (error) {
+            console.error("Firebase Auth Error:", error);
+            // عرض رسالة خطأ أكثر وضوحًا للمستخدم
+            if (error.code === 'auth/popup-closed-by-user') {
+                alert('تم إلغاء عملية الربط.');
+            } else {
+                alert(`❌ حدث خطأ أثناء المصادقة. الرجاء المحاولة مرة أخرى.`);
+            }
+        }
     };
 
     // --- ربط الأحداث ---
@@ -225,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         productNameInput.value = product.name;
                         productNotesInput.value = product.notes || '';
                         productIdInput.value = id;
-                        imagesPreviewContainer.innerHTML = '';
+imagesPreviewContainer.innerHTML = '';
                         uploadedImageUrls = product.imageUrls || [];
                         uploadedImageUrls.forEach(addUploadedImage);
                         saveProductBtn.textContent = 'حفظ التعديلات';
@@ -240,6 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cancelEditBtn) cancelEditBtn.addEventListener('click', resetProductForm);
 
     // أحداث ربط الحسابات
+    if (connectFacebookBtn) {
+        connectFacebookBtn.addEventListener('click', handleFacebookLogin);
+    }
     if (accountsTableBody) {
         accountsTableBody.addEventListener('click', async (e) => {
             if (e.target.classList.contains('delete-account-btn')) {
@@ -254,20 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    // --- تهيئة Facebook SDK ---
-    window.fbAsyncInit = function() {
-        FB.init({
-            appId: '758978576528127',
-            cookie: true,
-            xfbml: true,
-            version: 'v19.0'
-        });
-        // ربط الحدث بعد التهيئة مباشرة لضمان أن الـ SDK جاهز
-        if (connectFacebookBtn) {
-            connectFacebookBtn.addEventListener('click', handleFacebookLogin);
-        }
-    };
 
     // --- بدء تشغيل التطبيق ---
     showPage('dashboard-page');
