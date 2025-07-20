@@ -9,171 +9,82 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --sidebar-bg: #2d3748; /* رمادي داكن */
-            --sidebar-text: #a0aec0; /* رمادي فاتح للنص */
-            --sidebar-text-hover: #ffffff;
-            --sidebar-active-bg: #4a5568;
-            --main-bg: #f7fafc; /* رمادي فاتح جداً */
-            --card-bg: #ffffff;
-            --primary-color: #e53e3e; /* أحمر */
-            --secondary-color: #ddb837; /* أصفر */
-            --text-dark: #2d3748;
-            --text-light: #718096;
+            --sidebar-bg: #2d3748; --sidebar-text: #a0aec0; --sidebar-text-hover: #ffffff; --sidebar-active-bg: #4a5568;
+            --main-bg: #f7fafc; --card-bg: #ffffff; --primary-color: #e53e3e; --secondary-color: #ddb837;
+            --text-dark: #2d3748; --text-light: #718096; --border-color: #e2e8f0;
         }
-        body {
-            font-family: 'Cairo', sans-serif;
-            margin: 0;
-            background-color: var(--main-bg);
-        }
-        .dashboard-container {
-            display: flex;
-            min-height: 100vh;
-        }
-        /* --- الشريط الجانبي --- */
+        body { font-family: 'Cairo', sans-serif; margin: 0; background-color: var(--main-bg); }
+        .dashboard-container { display: flex; min-height: 100vh; }
         .sidebar {
-            width: 260px;
-            background-color: var(--sidebar-bg);
-            color: var(--sidebar-text);
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
+            width: 260px; background-color: var(--sidebar-bg); color: var(--sidebar-text); padding: 1.5rem;
+            display: flex; flex-direction: column;
         }
-        .sidebar-header {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: white;
-            text-align: center;
-            margin-bottom: 2.5rem;
-        }
-        .sidebar-nav a {
-            display: block;
-            color: var(--sidebar-text);
-            text-decoration: none;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-            transition: background-color 0.2s, color 0.2s;
-        }
-        .sidebar-nav a:hover {
-            background-color: var(--sidebar-active-bg);
-            color: var(--sidebar-text-hover);
-        }
-        .sidebar-nav a.active {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        .sidebar-footer {
-            margin-top: auto;
-        }
-        /* --- المحتوى الرئيسي --- */
-        .main-content {
-            flex-grow: 1;
-            padding: 2rem;
-        }
-        .main-header {
-            font-size: 1.75rem;
-            font-weight: 600;
-            color: var(--text-dark);
-            margin-bottom: 2rem;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .stat-card {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            text-align: center;
-        }
-        .stat-card .number {
-            font-size: 2.5rem;
-            font-weight: 700;
-        }
-        .stat-card .label {
-            font-size: 1rem;
-            margin-bottom: 1rem;
-        }
-        .stat-card .action-btn {
-            background-color: var(--secondary-color);
-            color: var(--text-dark);
-            border: none;
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .content-card {
-            background-color: var(--card-bg);
-            padding: 2rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-        }
+        .sidebar-header { font-size: 1.5rem; font-weight: 700; color: white; text-align: center; margin-bottom: 2.5rem; }
+        .sidebar-nav a { display: block; color: var(--sidebar-text); text-decoration: none; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; transition: all 0.2s; }
+        .sidebar-nav a:hover { background-color: var(--sidebar-active-bg); color: var(--sidebar-text-hover); }
+        .sidebar-nav a.active { background-color: var(--primary-color); color: white; }
+        .main-content { flex-grow: 1; padding: 2rem; }
+        .main-header { font-size: 1.75rem; font-weight: 600; color: var(--text-dark); margin-bottom: 2rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-dark); padding: 1.5rem; border-radius: 0.75rem; text-align: center; }
+        .stat-card .number { font-size: 2.5rem; font-weight: 700; color: var(--primary-color); }
+        .stat-card .label { font-size: 1rem; color: var(--text-light); }
+        .content-card { background-color: var(--card-bg); padding: 2rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .content-card h3 { margin-top: 0; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: right; padding: 1rem; border-bottom: 1px solid #e2e8f0; }
+        th, td { text-align: right; padding: 1rem; border-bottom: 1px solid var(--border-color); }
         th { font-weight: 600; color: var(--text-light); }
-        .action-btn-table {
-            background: none; border: 1px solid #cbd5e0; color: #4a5568;
-            padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; margin-left: 0.5rem;
-        }
+        .action-btn-table { background: none; border: 1px solid #cbd5e0; color: #4a5568; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; margin-left: 0.5rem; }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
         <!-- الشريط الجانبي -->
         <aside class="sidebar">
-            <header class="sidebar-header">
-                لوحة التحكم
-            </header>
+            <header class="sidebar-header">لوحة التحكم</header>
             <nav class="sidebar-nav">
-                <a href="#" class="active">📊 لوحة الإحصائيات</a>
-                <a href="#">🛍️ إدارة المنتجات</a>
-                <a href="#">🔗 ربط الحسابات</a>
-                <a href="#">⚙️ الإعدادات</a>
+                <a href="#" class="active" data-page="dashboard">📊 لوحة الإحصائيات</a>
+                <a href="#" data-page="products">🛍️ إدارة المنتجات</a>
+                <a href="#" data-page="accounts">🔗 ربط الحسابات</a>
             </nav>
-            <footer class="sidebar-footer">
-                <a href="#">تسجيل الخروج</a>
-            </footer>
         </aside>
 
         <!-- المحتوى الرئيسي -->
         <main class="main-content">
-            <h2 class="main-header">لوحة الإحصائيات</h2>
-            
-            <section class="stats-grid">
-                <div class="stat-card">
-                    <div id="products-count" class="number">0</div>
-                    <div class="label">منتج محفوظ</div>
-                    <button class="action-btn">إدارة المنتجات</button>
+            <!-- سيتم تحميل محتوى الصفحات هنا -->
+            <div id="page-content">
+                <!-- صفحة لوحة الإحصائيات (الافتراضية) -->
+                <div id="dashboard-page">
+                    <h2 class="main-header">مرحباً بك في استوديو المحتوى الذكي</h2>
+                    <section class="stats-grid">
+                        <div class="stat-card"><div id="products-count" class="number">0</div><div class="label">منتج محفوظ</div></div>
+                        <div class="stat-card"><div id="accounts-count" class="number">0</div><div class="label">حساب مربوط</div></div>
+                        <div class="stat-card"><div id="posts-today" class="number">0</div><div class="label">منشورات اليوم</div></div>
+                    </section>
+                    <section class="content-card">
+                        <h3>آخر المنتجات المضافة</h3>
+                        <table id="products-table">
+                            <thead><tr><th>اسم المنتج</th><th>ملاحظات النشر</th><th>إجراءات</th></tr></thead>
+                            <tbody id="products-table-body"></tbody>
+                        </table>
+                    </section>
                 </div>
-                <div class="stat-card">
-                    <div id="accounts-count" class="number">0</div>
-                    <div class="label">حساب مربوط</div>
-                    <button class="action-btn">ربط حساب</button>
-                </div>
-                <!-- يمكن إضافة بطاقات أخرى هنا -->
-            </section>
 
-            <section class="content-card">
-                <h3>آخر المنتجات المضافة</h3>
-                <table id="products-table">
-                    <thead>
-                        <tr>
-                            <th>اسم المنتج</th>
-                            <th>الوصف</th>
-                            <th>إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="products-table-body">
-                        <!-- سيتم ملء المنتجات هنا بواسطة JavaScript -->
-                    </tbody>
-                </table>
-            </section>
+                <!-- صفحة إدارة المنتجات (مخفية افتراضيًا) -->
+                <div id="products-page" style="display: none;">
+                    <h2 class="main-header">إدارة المنتجات</h2>
+                    <section class="content-card">
+                        <h3>إضافة / تعديل منتج</h3>
+                        <input type="hidden" id="product-id">
+                        <label for="product-name">اسم المنتج</label>
+                        <input type="text" id="product-name-input" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:0.5rem; margin-bottom:1rem; box-sizing: border-box;">
+                        <label for="product-notes">ملاحظات النشر (اختياري)</label>
+                        <textarea id="product-notes-input" rows="4" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:0.5rem; margin-bottom:1rem; box-sizing: border-box;" placeholder="مثال: ركز على أن العطر مناسب للجنسين"></textarea>
+                        <button id="save-product-btn" class="action-btn-table">حفظ المنتج</button>
+                        <button id="cancel-edit-btn" class="action-btn-table" style="display:none;">إلغاء التعديل</button>
+                    </section>
+                </div>
+            </div>
         </main>
     </div>
 
