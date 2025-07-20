@@ -8,8 +8,8 @@ const firebaseConfig = {
   appId: "1:212059531856:web:cf259c0a3c73b6bec87f55"
 };
 
-// تهيئة التطبيق وقاعدة البيانات
-const app = firebase.initializeApp(firebaseConfig);
+// تهيئة التطبيق وقاعدة البيانات بالطريقة المتوافقة مع الإصدار 8
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // --- ربط زر حفظ المنتج بالوظيفة الخاصة به ---
@@ -42,6 +42,3 @@ saveButton.addEventListener('click', () => {
         alert("❌ حدث خطأ أثناء حفظ المنتج. تحقق من الـ console.");
     });
 });
-
-// رسالة ترحيب أخيرة للتأكد أن الملف يعمل
-alert("النظام يعمل بالطريقة الكلاسيكية!");
