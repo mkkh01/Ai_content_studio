@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const account = doc.data();
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${account.platform}</td>
+                    <td><img src="${account.platform === 'Facebook' ? 'https://upload.wikimedia.org/wikipedia/commons/b/b9/2023_Facebook_icon.svg' : 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png'}" alt="${account.platform}" width="24" style="vertical-align: middle; margin-left: 8px;"> ${account.platform}</td>
                     <td>${account.name}</td>
                     <td>
                         <button class="btn-primary delete-account-btn" data-id="${doc.id}">حذف</button>
@@ -269,7 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
                                 }
                                 alert('✅ تم ربط حسابات فيسبوك وإنستغرام بنجاح!');
-                                fetchAccounts();
+                                // *** هذا هو السطر الجديد الذي يحل المشكلة ***
+                                fetchAccounts(); 
                             } else {
                                 console.error('Error fetching pages:', res.error);
                             }
@@ -278,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log('User cancelled login or did not fully authorize.');
                     }
                 }, { 
-                    // الكود الآن يطلب الإذن الذي قمت بتفعيله
                     scope: 'email,public_profile,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_read_engagement' 
                 });
             });
