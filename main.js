@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const imagesPreviewContainer = document.getElementById('product-images-preview');
     let uploadedImageUrls = [];
 
-    // --- عناصر واجهة ربط الحسابات (جديد) ---
+    // --- عناصر واجهة ربط الحسابات ---
     const connectFacebookBtn = document.getElementById('connect-facebook-btn');
     const accountsTableBody = document.querySelector('#accounts-table tbody');
 
@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- وظائف ربط الحسابات (جديد) ---
+    // --- وظائف ربط الحسابات ---
     const fetchAccounts = async () => {
         try {
             const snapshot = await db.collection('accounts').orderBy('createdAt', 'desc').get();
@@ -126,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveAccountToFirestore = async (accountData) => {
         try {
-            // تحقق مما إذا كان الحساب موجودًا بالفعل
             const existingAccountQuery = await db.collection('accounts')
                 .where('platform', '==', accountData.platform)
                 .where('id', '==', accountData.id)
@@ -155,9 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // أحداث إدارة المنتجات
-    if (imageUploadBtn) {
-        imageUploadBtn.addEventListener('click', () => cloudinaryWidget.open());
-    }
+    if (imageUploadBtn) imageUploadBtn.addEventListener('click', () => cloudinaryWidget.open());
     if (imagesPreviewContainer) {
         imagesPreviewContainer.addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-img-btn')) {
@@ -172,16 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const name = productNameInput.value.trim();
             const notes = productNotesInput.value.trim();
             const productId = productIdInput.value;
-
-            if (!name) { return alert('الرجاء إدخال اسم المنتج.'); }
-
-            const productData = {
-                name,
-                notes,
-                imageUrls: uploadedImageUrls,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-
+            if (!name) return alert('الرجاء إدخال اسم المنتج.');
+            const productData = { name, notes, imageUrls: uploadedImageUrls, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
             try {
                 if (productId) {
                     await db.collection('products').doc(productId).update(productData);
@@ -203,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
         productsTableBody.addEventListener('click', async (e) => {
             const target = e.target;
             const id = target.dataset.id;
-
             if (target.classList.contains('delete-btn')) {
                 if (confirm('هل أنت متأكد من أنك تريد حذف هذا المنتج؟')) {
                     try {
@@ -213,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (error) { console.error("Error deleting product: ", error); }
                 }
             }
-
             if (target.classList.contains('edit-btn')) {
                 try {
                     const doc = await db.collection('products').doc(id).get();
@@ -234,41 +221,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    if (cancelEditBtn) {
-        cancelEditBtn.addEventListener('click', resetProductForm);
-    }
+    if (cancelEditBtn) cancelEditBtn.addEventListener('click', resetProductForm);
 
-    // أحداث ربط الحسابات (جديد)
-    if (connectFacebookBtn) {
-        connectFacebookBtn.addEventListener('click', () => {
-            FB.login(response => {
-                if (response.authResponse) {
-                    console.log('Welcome! Fetching your information.... ');
-                    const accessToken = response.authResponse.accessToken;
-                    // جلب صفحات فيسبوك وحسابات انستغرام المرتبطة
-                    FB.api('/me/accounts?fields=name,access_token,instagram_business_account{name,username}', async (res) => {
-                        if (res && !res.error) {
-                            console.log('Pages and accounts:', res.data);
-                            for (const page of res.data) {
-                                // حفظ صفحة فيسبوك
-                                await saveAccountToFirestore({ platform: 'Facebook', id: page.id, name: page.name });
-                                // حفظ حساب انستغرام إذا كان موجودًا
-                                if (page.instagram_business_account) {
-                                    await saveAccountToFirestore({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username });
-                                }
-                            }
-                            alert('✅ تم ربط حسابات فيسبوك وإنستغرام بنجاح!');
-                            fetchAccounts(); // تحديث الجدول
-                        } else {
-                            console.error('Error fetching pages:', res.error);
-                        }
-                    });
-                } else {
-                    console.log('User cancelled login or did not fully authorize.');
-                }
-            }, { scope: 'pages_show_list,pages_manage_posts,instagram_basic,instagram_content_publish' });
-        });
-    }
+    // أحداث ربط الحسابات
     if (accountsTableBody) {
         accountsTableBody.addEventListener('click', async (e) => {
             if (e.target.classList.contains('delete-account-btn')) {
@@ -278,23 +233,55 @@ document.addEventListener('DOMContentLoaded', () => {
                         await db.collection('accounts').doc(id).delete();
                         alert('🗑️ تم حذف الحساب بنجاح.');
                         fetchAccounts();
-                    } catch (error) {
-                        console.error("Error deleting account:", error);
-                    }
+                    } catch (error) { console.error("Error deleting account:", error); }
                 }
             }
         });
     }
 
     // --- تهيئة Facebook SDK وبدء تشغيل التطبيق ---
+    if (connectFacebookBtn) {
+        connectFacebookBtn.disabled = true; // تعطيل الزر في البداية
+    }
+
     window.fbAsyncInit = function() {
         FB.init({
-            appId: '758978576528127', // <-- ضع معرّف التطبيق الخاص بك هنا
+            appId: '758978576528127', // <-- معرّف التطبيق الخاص بك
             cookie: true,
             xfbml: true,
             version: 'v19.0'
         });
         FB.AppEvents.logPageView();
+
+        // *** التعديل الحاسم هنا ***
+        // تفعيل الزر وربط الحدث فقط بعد التأكد من تهيئة SDK
+        if (connectFacebookBtn) {
+            connectFacebookBtn.disabled = false; // تفعيل الزر
+            connectFacebookBtn.addEventListener('click', () => {
+                FB.login(response => {
+                    if (response.authResponse) {
+                        console.log('Welcome! Fetching your information.... ');
+                        FB.api('/me/accounts?fields=name,access_token,instagram_business_account{name,username}', async (res) => {
+                            if (res && !res.error) {
+                                console.log('Pages and accounts:', res.data);
+                                for (const page of res.data) {
+                                    await saveAccountToFirestore({ platform: 'Facebook', id: page.id, name: page.name });
+                                    if (page.instagram_business_account) {
+                                        await saveAccountToFirestore({ platform: 'Instagram', id: page.instagram_business_account.id, name: page.instagram_business_account.username });
+                                    }
+                                }
+                                alert('✅ تم ربط حسابات فيسبوك وإنستغرام بنجاح!');
+                                fetchAccounts();
+                            } else {
+                                console.error('Error fetching pages:', res.error);
+                            }
+                        });
+                    } else {
+                        console.log('User cancelled login or did not fully authorize.');
+                    }
+                }, { scope: 'pages_show_list,pages_manage_posts,instagram_basic,instagram_content_publish' });
+            });
+        }
     };
 
     // --- بدء تشغيل التطبيق ---
