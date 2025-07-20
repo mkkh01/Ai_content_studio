@@ -278,8 +278,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log('User cancelled login or did not fully authorize.');
                     }
                 }, { 
-                    // *** الكود الصحيح والنهائي 100% ***
-                    scope: 'email,public_profile,pages_show_list,pages_manage_posts,pages_manage_engagement' 
+                    // الكود الآن يطلب الإذن الذي قمت بتفعيله
+                    scope: 'email,public_profile,pages_show_list,pages_manage_posts,pages_manage_engagement,pages_read_engagement' 
                 });
             });
         }
