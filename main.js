@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- تهيئة Firebase ---
-    // تأكد من أن هذه البيانات صحيحة ومطابقة لمشروعك في Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyAmjrlrjus3lXBsOqCY0xwowahjPOl4XFc",
         authDomain: "aicontentstudio-4a0fd.firebaseapp.com",
@@ -10,11 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
         appId: "1:212059531856:web:cf259c0a3c73b6bec87f55"
     };
     
-    // استخدام وضع التوافق (compat)
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    console.log("Firebase Initialized (Compat Mode).");
+    console.log("Firebase Initialized (Facebook Only Mode).");
 
     // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
@@ -102,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- وظائف ربط الحسابات (مع رسائل تشخيص) ---
+    // --- وظائف ربط الحسابات (فيسبوك فقط) ---
     const renderAccounts = (accounts) => {
         console.log("Rendering accounts:", accounts);
         accountsTableBody.innerHTML = '';
@@ -112,11 +110,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         accounts.forEach(account => {
             const row = document.createElement('tr');
-            const iconUrl = account.platform === 'Facebook' 
-                ? 'https://upload.wikimedia.org/wikipedia/commons/b/b9/2023_Facebook_icon.svg' 
-                : 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png';
+            // بما أننا نركز على فيسبوك فقط، يمكن تبسيط هذا الجزء
+            const iconUrl = 'https://upload.wikimedia.org/wikipedia/commons/b/b9/2023_Facebook_icon.svg';
             row.innerHTML = `
-                <td><img src="${iconUrl}" alt="${account.platform}" width="24" style="vertical-align: middle; margin-left: 8px;"> ${account.platform}</td>
+                <td><img src="${iconUrl}" alt="Facebook" width="24" style="vertical-align: middle; margin-left: 8px;"> ${account.platform}</td>
                 <td>${account.name}</td>
                 <td><button class="btn-primary delete-account-btn" data-id="${account.docId}">حذف</button></td>
             `;
@@ -140,14 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleFacebookLogin = async () => {
         console.log("Facebook connect button clicked. Starting redirect flow...");
         const provider = new firebase.auth.FacebookAuthProvider();
-        // طلب الأذونات اللازمة
+        // طلب أذونات فيسبوك فقط
         provider.addScope('email');
         provider.addScope('public_profile');
         provider.addScope('pages_show_list');
         provider.addScope('pages_manage_posts');
         provider.addScope('pages_read_engagement');
-        provider.addScope('instagram_basic');
-        provider.addScope('instagram_content_publish');
 
         try {
             await auth.signInWithRedirect(provider);
@@ -168,10 +163,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const accessToken = result.credential.accessToken;
                 console.log("Access Token obtained.");
 
-                // جلب صفحات فيسبوك وحسابات انستغرام المرتبطة بها
-                const response = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token,instagram_business_account{name,username}&access_token=${accessToken}`);
+                // جلب صفحات فيسبوك فقط
+                const response = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token&access_token=${accessToken}`);
                 const res = await response.json();
-                console.log("Graph API response:", res);
+                console.log("Graph API response (Facebook only):", res);
 
                 if (res && !res.error) {
                     console.log("Graph API call successful. Deleting old accounts...");
@@ -182,7 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const addPromises = [];
                     for (const page of res.data) {
-                        // إضافة صفحة فيسبوك
                         addPromises.push(db.collection('accounts').add({ 
                             platform: 'Facebook', 
                             id: page.id, 
@@ -190,22 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             createdAt: firebase.firestore.FieldValue.serverTimestamp() 
                         }));
                         console.log(`Added Facebook page: ${page.name}`);
-                        
-                        // إضافة حساب انستغرام إذا كان موجودًا
-                        if (page.instagram_business_account) {
-                            addPromises.push(db.collection('accounts').add({ 
-                                platform: 'Instagram', 
-                                id: page.instagram_business_account.id, 
-                                name: page.instagram_business_account.username, 
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp() 
-                            }));
-                            console.log(`Added Instagram account: ${page.instagram_business_account.username}`);
-                        }
                     }
                     await Promise.all(addPromises);
-                    alert('✅ تم ربط الحسابات بنجاح!');
+                    alert('✅ تم ربط صفحات فيسبوك بنجاح!');
                     await fetchAndRenderAccounts();
-                    showPage('accounts-page'); // الانتقال إلى صفحة الحسابات لعرض النتيجة
+                    showPage('accounts-page');
                 } else {
                     console.error("Graph API Error:", res.error);
                     alert(`حدث خطأ أثناء جلب صفحات فيسبوك: ${res.error.message}`);
@@ -328,24 +311,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- بدء تشغيل التطبيق ---
     const startApp = async () => {
         console.log("App Starting...");
-        const urlParams = new URLSearchParams(window.location.search);
-        const page = urlParams.get('page');
-
-        // تحقق مما إذا كنا قادمين من إعادة توجيه OAuth
-        // هذا الشرط يساعد في تجنب إعادة تنفيذ الكود عند كل تحميل للصفحة
-        if (window.location.pathname.includes('__/auth/handler')) {
-             await handleRedirectResult();
-        } else {
-             await fetchAndRenderAccounts();
-        }
-        
+        // لا حاجة للتحقق من إعادة التوجيه هنا، يمكن تبسيطها
+        await handleRedirectResult();
+        await fetchAndRenderAccounts();
         fetchProducts();
-
-        if (page) {
-            showPage(page + '-page');
-        } else {
-            showPage('dashboard-page');
-        }
+        showPage('dashboard-page');
         console.log("App Started.");
     };
 
