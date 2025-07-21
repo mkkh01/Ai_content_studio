@@ -142,12 +142,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (res && !res.error) {
                     const batch = db.batch();
-                    const oldAccountsRef = db.collection('users').doc(currentUserId).collection('accounts');
-                    const oldAccountsSnapshot = await oldAccountsRef.get();
+                    const accountsCollectionRef = db.collection('users').doc(currentUserId).collection('accounts');
+                    const oldAccountsSnapshot = await accountsCollectionRef.get();
                     oldAccountsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
 
                     res.data.forEach(page => {
-                        const newAccountRef = oldAccountsRef.doc();
+                        const newAccountRef = accountsCollectionRef.doc();
                         batch.set(newAccountRef, {
                             platform: 'Facebook',
                             id: page.id,
@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("User is signed out.");
             currentUserId = null;
             renderAccounts([]); // مسح جدول الحسابات عند تسجيل الخروج
+            productsTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">الرجاء تسجيل الدخول لعرض المنتجات.</td></tr>';
         }
     });
 
