@@ -130,22 +130,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- دالة معالجة نتيجة إعادة التوجيه (مع رسائل تشخيص) ---
     const handleRedirectResult = async () => {
         try {
             const result = await auth.getRedirectResult();
             if (result && result.credential && result.user) {
                 const user = result.user;
-                currentUserId = user.uid; // **أهم سطر: نحصل على هوية المستخدم**
+                currentUserId = user.uid;
                 const accessToken = result.credential.accessToken;
+                
+                // رسالة تشخيص 1
+                alert("تم تسجيل الدخول بنجاح! جاري جلب صفحات فيسبوك...");
+    
                 const response = await fetch(`https://graph.facebook.com/me/accounts?fields=name,access_token&access_token=${accessToken}`);
                 const res = await response.json();
-
-                if (res && !res.error) {
+    
+                // رسالة تشخيص 2
+                alert(`رد فيسبوك: ${JSON.stringify(res)}`);
+    
+                if (res && res.data && res.data.length > 0) {
                     const batch = db.batch();
                     const accountsCollectionRef = db.collection('users').doc(currentUserId).collection('accounts');
                     const oldAccountsSnapshot = await accountsCollectionRef.get();
                     oldAccountsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
+    
                     res.data.forEach(page => {
                         const newAccountRef = accountsCollectionRef.doc();
                         batch.set(newAccountRef, {
@@ -156,14 +164,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     });
                     await batch.commit();
-                    alert('✅ تم ربط الحسابات بنجاح!');
-                    await fetchAndRenderAccounts(); // **سيتم العرض بنجاح الآن**
+                    // رسالة تشخيص 3
+                    alert('✅ تم حفظ الحسابات بنجاح في قاعدة البيانات!');
+                    await fetchAndRenderAccounts();
+                } else if (res.error) {
+                    // رسالة تشخيص 4
+                    alert(`❌ خطأ من فيسبوك: ${res.error.message}`);
                 } else {
-                    console.error("Graph API Error:", res.error);
+                    // رسالة تشخيص 5
+                    alert("لم يتم العثور على أي صفحات فيسبوك مرتبطة بهذا الحساب.");
                 }
             }
         } catch (error) {
-            console.error("!!! CRITICAL REDIRECT ERROR !!!", error);
+            // رسالة تشخيص 6
+            alert(`❌ حدث خطأ فادح: ${error.message}`);
         }
     };
 
@@ -270,3 +284,4 @@ document.addEventListener('DOMContentLoaded', () => {
     showPage('dashboard-page');
     handleRedirectResult(); // **مهم جداً: يجب أن يتم قبل مراقبة حالة المصادقة**
 });
+
