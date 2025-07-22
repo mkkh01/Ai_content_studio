@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحكم | استوديو المحتوى</title>
+    <title>استوديو المحتوى | مانوس</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
@@ -14,7 +14,21 @@
             --text-dark: #2d3748; --text-light: #718096; --border-color: #e2e8f0;
         }
         body { font-family: 'Cairo', sans-serif; margin: 0; background-color: var(--main-bg); }
-        .dashboard-container { display: flex; min-height: 100vh; }
+        input, textarea, select { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
+        button { padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; font-family: 'Cairo', sans-serif; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-secondary { background-color: var(--text-light); color: white; }
+        .btn-manus { background-color: #8B5CF6; color: white; }
+
+        /* --- شاشة تسجيل الدخول --- */
+        #login-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--sidebar-bg); }
+        .login-box { background: var(--card-bg); padding: 2.5rem; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); text-align: center; width: 350px; }
+        .login-box h1 { color: var(--text-dark); margin-top: 0; margin-bottom: 0.5rem; }
+        .login-box p { color: var(--text-light); margin-bottom: 2rem; }
+        #login-error { color: var(--primary-color); margin-bottom: 1rem; display: none; }
+
+        /* --- لوحة التحكم --- */
+        .dashboard-container { display: none; flex-direction: row; min-height: 100vh; }
         .sidebar { width: 260px; background-color: var(--sidebar-bg); color: var(--sidebar-text); padding: 1.5rem; display: flex; flex-direction: column; }
         .sidebar-header { font-size: 1.5rem; font-weight: 700; color: white; text-align: center; margin-bottom: 2.5rem; }
         .sidebar-nav a { display: flex; align-items: center; gap: 0.75rem; color: var(--sidebar-text); text-decoration: none; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; transition: all 0.2s; }
@@ -25,41 +39,45 @@
         .content-card { background-color: var(--card-bg); border-radius: 0.75rem; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
         .page { display: none; }
         .page.active { display: block; }
-        input, textarea, select { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
-        button { padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
-        .btn-primary { background-color: var(--primary-color); color: white; }
-        .btn-secondary { background-color: var(--text-light); color: white; }
         #image-upload-btn { background-color: var(--secondary-color); color: white; margin-bottom: 1rem; }
         #product-images-preview { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
         .img-preview-container { position: relative; }
         .img-preview-container img { width: 100px; height: 100px; object-fit: cover; border-radius: 0.5rem; }
         .remove-img-btn { position: absolute; top: -5px; right: -5px; background: black; color: white; border-radius: 50%; width: 20px; height: 20px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: right; padding: 1rem; border-bottom: 1px solid var(--border-color); }
+        th, td { text-align: right; padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
         th { font-weight: 600; color: var(--text-light); }
+        .manus-result { background-color: #f3f4f6; font-size: 0.9rem; }
+        .manus-result p { margin: 0.5rem 0; }
     </style>
 </head>
 <body>
-    <div class="dashboard-container">
+
+    <!-- شاشة تسجيل الدخول -->
+    <div id="login-container">
+        <div class="login-box">
+            <h1>🚀 استوديو المحتوى</h1>
+            <p>بوابة الدخول الخاصة بمانوس</p>
+            <div id="login-error">اسم المستخدم أو كلمة المرور غير صحيحة.</div>
+            <input type="text" id="username-input" placeholder="اسم المستخدم">
+            <input type="password" id="password-input" placeholder="كلمة المرور">
+            <button id="login-btn" class="btn-primary" style="width: 100%;">دخول</button>
+        </div>
+    </div>
+
+    <!-- لوحة التحكم الرئيسية (مخفية) -->
+    <div class="dashboard-container" id="dashboard-main">
         <aside class="sidebar">
             <h1 class="sidebar-header">🚀 استوديو المحتوى</h1>
             <nav class="sidebar-nav">
-                <a href="#" data-page="dashboard">📊 لوحة الإحصائيات</a>
-                <a href="#" data-page="products">🛍️ إدارة المنتجات</a>
-                <a href="#" data-page="accounts">🔗 ربط الحسابات</a>
-                <a href="#" data-page="scheduler">🗓️ جدولة النشر</a>
-                <a href="#" data-page="analytics">📈 تحليل الأداء</a>
+                <a href="#" data-page="products" class="active">🛍️ إدارة المنتجات</a>
+                <a href="#" id="logout-btn">تسجيل الخروج</a>
             </nav>
         </aside>
         <main class="main-content">
             <div id="page-content">
-                <!-- صفحة لوحة الإحصائيات -->
-                <div id="dashboard-page" class="page">
-                    <h2 class="main-header">مرحباً بك في استوديو المحتوى الذكي</h2>
-                </div>
-
                 <!-- صفحة إدارة المنتجات -->
-                <div id="products-page" class="page">
+                <div id="products-page" class="page active">
                     <h2 class="main-header">إدارة المنتجات</h2>
                     <section class="content-card">
                         <h3>إضافة / تعديل منتج</h3>
@@ -67,7 +85,7 @@
                         <label for="product-name">اسم المنتج</label>
                         <input type="text" id="product-name-input">
                         
-                        <label for="product-notes">ملاحظات النشر (للمانوس)</label>
+                        <label for="product-notes">ملاحظات النشر (لمانوس)</label>
                         <textarea id="product-notes-input" rows="4"></textarea>
 
                         <label>صور المنتج</label>
@@ -78,13 +96,14 @@
                         <button id="cancel-edit-btn" class="btn-secondary" style="display: none;">إلغاء التعديل</button>
                     </section>
                     <section class="content-card" style="margin-top: 2rem;">
-                        <h3>آخر المنتجات المضافة</h3>
+                        <h3>قائمة المنتجات</h3>
                         <table id="products-table">
                             <thead>
                                 <tr>
                                     <th>اسم المنتج</th>
                                     <th>الصور</th>
                                     <th>إجراءات</th>
+                                    <th>محتوى مانوس</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -93,42 +112,6 @@
                         </table>
                     </section>
                 </div>
-
-                <!-- صفحة ربط الحسابات -->
-                <div id="accounts-page" class="page">
-                    <h2 class="main-header">🔗 ربط حسابات التواصل الاجتماعي</h2>
-                    <section class="content-card">
-                        <h3>اختر المنصة للربط</h3>
-                        <p>اربط حساباتك لبدء جدولة المحتوى والنشر مباشرة من الاستوديو.</p>
-                        <div id="connection-buttons">
-                            <button id="connect-facebook-btn" class="btn-primary" style="width: 100%; margin-bottom: 1rem; background-color: #1877F2;">
-                                🔗 الربط باستخدام فيسبوك وإنستغرام
-                            </button>
-                            <button id="connect-tiktok-btn" class="btn-secondary" style="width: 100%; background-color: #000000;" disabled>
-                                🔗 الربط باستخدام تيك توك (قريبًا)
-                            </button>
-                        </div>
-                    </section>
-                    <section class="content-card" style="margin-top: 2rem;">
-                        <h3>الحسابات المرتبطة حاليًا</h3>
-                        <table id="accounts-table">
-                            <thead>
-                                <tr>
-                                    <th>المنصة</th>
-                                    <th>اسم الحساب</th>
-                                    <th>إجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- سيتم ملء الحسابات هنا عبر JavaScript -->
-                            </tbody>
-                        </table>
-                    </section>
-                </div>
-
-                <!-- باقي الصفحات -->
-                <div id="scheduler-page" class="page"><h2 class="main-header">جدولة النشر</h2></div>
-                <div id="analytics-page" class="page"><h2 class="main-header">تحليل الأداء</h2></div>
             </div>
         </main>
     </div>
