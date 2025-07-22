@@ -1,3 +1,6 @@
+// =================================================
+// استوديو المحتوى الذكي - النسخة النهائية مع مانوس
+// =================================================
 document.addEventListener('DOMContentLoaded', () => {
     // --- تهيئة Firebase ---
     const firebaseConfig = {
@@ -11,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    let currentUserId = null; // متغير لتخزين هوية المستخدم الحالي
+    let currentUserId = null;
 
     // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
@@ -42,6 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const connectFacebookBtn = document.getElementById('connect-facebook-btn');
     const accountsTableBody = document.querySelector('#accounts-table tbody');
     let uploadedImageUrls = [];
+
+    // --- رابط وظيفة مانوس (الجسر) ---
+    // استبدل 'cheerful-lily-5c0d8e' باسم مشروعك على Netlify إذا كان مختلفًا
+    const MANUS_FUNCTION_URL = 'https://cheerful-lily-5c0d8e.netlify.app/.netlify/functions/manus';
 
     // --- وظائف الواجهة العامة ---
     const showPage = (pageId) => {
@@ -76,20 +83,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchProducts = async () => {
         if (!currentUserId) {
-            productsTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">الرجاء تسجيل الدخول لعرض المنتجات.</td></tr>';
+            productsTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">الرجاء تسجيل الدخول لعرض المنتجات.</td></tr>';
             return;
         }
         try {
             const snapshot = await db.collection('users').doc(currentUserId).collection('products').orderBy('createdAt', 'desc').get();
             productsTableBody.innerHTML = '';
             if (snapshot.empty) {
-                productsTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">لم تقم بإضافة أي منتجات بعد.</td></tr>';
+                productsTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">لم تقم بإضافة أي منتجات بعد.</td></tr>';
                 return;
             }
             snapshot.forEach(doc => {
                 const product = doc.data();
                 const row = document.createElement('tr');
-                row.innerHTML = `<td>${product.name}</td><td>${product.imageUrls ? product.imageUrls.length : 0} صورة</td><td><button class="btn-secondary edit-btn" data-id="${doc.id}">تعديل</button><button class="btn-primary delete-btn" data-id="${doc.id}">حذف</button></td>`;
+                row.dataset.productId = doc.id; // إضافة معرف المنتج للصف
+                row.innerHTML = `
+                    <td>${product.name}</td>
+                    <td>${product.imageUrls ? product.imageUrls.length : 0} صورة</td>
+                    <td>
+                        <button class="btn-secondary edit-btn" data-id="${doc.id}">تعديل</button>
+                        <button class="btn-primary delete-btn" data-id="${doc.id}">حذف</button>
+                        <button class="btn-manus" data-id="${doc.id}">🚀 اطلب محتوى من مانوس</button>
+                    </td>
+                    <td class="manus-result" id="manus-result-${doc.id}" style="display:none;"></td>
+                `;
                 productsTableBody.appendChild(row);
             });
         } catch (error) {
@@ -98,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- وظائف ربط الحسابات (مرتبطة بالمستخدم) ---
+    // (الكود الخاص بربط الحسابات يبقى كما هو)
     const renderAccounts = (accounts) => {
         accountsTableBody.innerHTML = '';
         if (!accounts || accounts.length === 0) {
@@ -123,18 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAccounts([]);
         }
     };
-
+    
     const handleFacebookLogin = async () => {
         const provider = new firebase.auth.FacebookAuthProvider();
-        provider.addScope('public_profile');
-        provider.addScope('email');
-        provider.addScope('pages_show_list');
-        provider.addScope('pages_manage_posts');
+        provider.addScope('public_profile,email,pages_show_list,pages_manage_posts');
         try {
             await auth.signInWithRedirect(provider);
         } catch (error) {
             console.error("Redirect Error Start:", error);
-            alert(`حدث خطأ قبل إعادة التوجيه: ${error.message}`);
         }
     };
 
@@ -145,17 +159,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const user = result.user;
                 currentUserId = user.uid;
                 const accessToken = result.credential.accessToken;
-                const response = await fetch(`https://graph.facebook.com/me/accounts?fields=name,access_token&access_token=${accessToken}`);
+                const response = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=name,access_token&access_token=${accessToken}`);
                 const res = await response.json();
 
                 if (res && res.data && res.data.length > 0) {
                     const batch = db.batch();
                     const accountsCollectionRef = db.collection('users').doc(currentUserId).collection('accounts');
-                    const oldAccountsSnapshot = await accountsCollectionRef.get();
-                    oldAccountsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
                     res.data.forEach(page => {
-                        const newAccountRef = accountsCollectionRef.doc();
+                        const newAccountRef = accountsCollectionRef.doc(page.id);
                         batch.set(newAccountRef, {
                             platform: 'Facebook',
                             id: page.id,
@@ -174,19 +185,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("!!! CRITICAL REDIRECT ERROR !!!", error);
-            alert(`❌ حدث خطأ فادح بعد العودة من فيسبوك: ${error.message}`);
         }
     };
 
     // --- مراقبة حالة المصادقة ---
     auth.onAuthStateChanged(user => {
         if (user) {
-            console.log("User is signed in:", user.uid);
             currentUserId = user.uid;
             fetchProducts();
             fetchAndRenderAccounts();
         } else {
-            console.log("User is signed out.");
             currentUserId = null;
             renderAccounts([]);
             fetchProducts();
@@ -235,6 +243,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target;
             const id = target.dataset.id;
             const productRef = db.collection('users').doc(currentUserId).collection('products').doc(id);
+
+            // --- منطق زر مانوس الجديد ---
+            if (target.classList.contains('btn-manus')) {
+                const manusResultCell = document.getElementById(`manus-result-${id}`);
+                manusResultCell.style.display = 'table-cell';
+                manusResultCell.innerHTML = '🧠 مانوس يفكر...';
+                
+                try {
+                    const doc = await productRef.get();
+                    if (!doc.exists) throw new Error("Product not found");
+                    
+                    const product = doc.data();
+                    const response = await fetch(MANUS_FUNCTION_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            productName: product.name,
+                            productNotes: product.notes
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`خطأ من مانوس: ${response.statusText}`);
+                    }
+
+                    const manusData = await response.json();
+                    manusResultCell.innerHTML = `
+                        <p><strong>النص المقترح:</strong> ${manusData.postText}</p>
+                        <p><strong>الهاشتاجات:</strong> ${manusData.hashtags.join(' ')}</p>
+                    `;
+
+                } catch (error) {
+                    console.error("Manus Error:", error);
+                    manusResultCell.innerHTML = `حدث خطأ: ${error.message}`;
+                }
+            }
+
             if (target.classList.contains('delete-btn')) {
                 if (confirm('هل أنت متأكد؟')) {
                     try { await productRef.delete(); fetchProducts(); } catch (error) { console.error(error); }
