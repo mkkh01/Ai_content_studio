@@ -1,6 +1,6 @@
 // هذا هو العقل المدبر "مانوس"
 // This is the "Manus" mastermind function
-
+ 
 export default async (req, context) => {
   // أولاً، نتأكد أن الطلب صحيح
   if (req.method !== 'POST') {
