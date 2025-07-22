@@ -1,5 +1,5 @@
 // =================================================
-// استوديو المحتوى الذكي - النسخة النهائية مع مانوس
+// استوديو المحتوى - النسخة النهائية مع تسجيل دخول مخصص
 // =================================================
 document.addEventListener('DOMContentLoaded', () => {
     // --- تهيئة Firebase ---
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    let currentUserId = null;
+    let currentUserId = "admin_user"; // معرف ثابت للمستخدم الوحيد
 
     // --- تهيئة Cloudinary ---
     const CLOUD_NAME = 'dbd04hozw';
@@ -32,8 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- عناصر الواجهة ---
-    const navLinks = document.querySelectorAll('.sidebar-nav a');
-    const pages = document.querySelectorAll('.page');
+    const loginContainer = document.getElementById('login-container');
+    const dashboardMain = document.getElementById('dashboard-main');
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const usernameInput = document.getElementById('username-input');
+    const passwordInput = document.getElementById('password-input');
+    const loginError = document.getElementById('login-error');
+    
     const saveProductBtn = document.getElementById('save-product-btn');
     const productNameInput = document.getElementById('product-name-input');
     const productNotesInput = document.getElementById('product-notes-input');
@@ -42,27 +48,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelEditBtn = document.getElementById('cancel-edit-btn');
     const imageUploadBtn = document.getElementById('image-upload-btn');
     const imagesPreviewContainer = document.getElementById('product-images-preview');
-    const connectFacebookBtn = document.getElementById('connect-facebook-btn');
-    const accountsTableBody = document.querySelector('#accounts-table tbody');
+    
     let uploadedImageUrls = [];
 
     // --- رابط وظيفة مانوس (الجسر) ---
-    // استبدل 'cheerful-lily-5c0d8e' باسم مشروعك على Netlify إذا كان مختلفًا
     const MANUS_FUNCTION_URL = 'https://cheerful-lily-5c0d8e.netlify.app/.netlify/functions/manus';
 
-    // --- وظائف الواجهة العامة ---
-    const showPage = (pageId) => {
-        pages.forEach(page => page.classList.remove('active'));
-        const targetPage = document.getElementById(pageId);
-        if (targetPage) {
-            targetPage.classList.add('active');
-        }
-        navLinks.forEach(link => {
-            link.classList.toggle('active', link.dataset.page === pageId.replace('-page', ''));
-        });
+    // --- وظائف تسجيل الدخول ---
+    const showDashboard = () => {
+        loginContainer.style.display = 'none';
+        dashboardMain.style.display = 'flex';
+        fetchProducts();
     };
 
-    // --- وظائف إدارة المنتجات (مرتبطة بالمستخدم) ---
+    const showLogin = () => {
+        loginContainer.style.display = 'flex';
+        dashboardMain.style.display = 'none';
+        sessionStorage.removeItem('manus_logged_in');
+    };
+
+    loginBtn.addEventListener('click', () => {
+        const username = usernameInput.value;
+        const password = passwordInput.value;
+        if (username === 'admin' && password === '12345') {
+            sessionStorage.setItem('manus_logged_in', 'true');
+            showDashboard();
+        } else {
+            loginError.style.display = 'block';
+        }
+    });
+
+    logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showLogin();
+    });
+
+    // التحقق من حالة تسجيل الدخول عند تحميل الصفحة
+    if (sessionStorage.getItem('manus_logged_in') === 'true') {
+        showDashboard();
+    } else {
+        showLogin();
+    }
+
+    // --- وظائف إدارة المنتجات (مرتبطة بـ Firebase) ---
     const resetProductForm = () => {
         productNameInput.value = '';
         productNotesInput.value = '';
@@ -82,10 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const fetchProducts = async () => {
-        if (!currentUserId) {
-            productsTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">الرجاء تسجيل الدخول لعرض المنتجات.</td></tr>';
-            return;
-        }
         try {
             const snapshot = await db.collection('users').doc(currentUserId).collection('products').orderBy('createdAt', 'desc').get();
             productsTableBody.innerHTML = '';
@@ -96,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             snapshot.forEach(doc => {
                 const product = doc.data();
                 const row = document.createElement('tr');
-                row.dataset.productId = doc.id; // إضافة معرف المنتج للصف
+                row.dataset.productId = doc.id;
                 row.innerHTML = `
                     <td>${product.name}</td>
                     <td>${product.imageUrls ? product.imageUrls.length : 0} صورة</td>
@@ -111,98 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } catch (error) {
             console.error("Error fetching products: ", error);
+            productsTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center;">خطأ في جلب البيانات: ${error.message}</td></tr>`;
         }
     };
-
-    // --- وظائف ربط الحسابات (مرتبطة بالمستخدم) ---
-    // (الكود الخاص بربط الحسابات يبقى كما هو)
-    const renderAccounts = (accounts) => {
-        accountsTableBody.innerHTML = '';
-        if (!accounts || accounts.length === 0) {
-            accountsTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center;">لا توجد حسابات مرتبطة حاليًا.</td></tr>';
-            return;
-        }
-        accounts.forEach(account => {
-            const row = document.createElement('tr');
-            const iconUrl = account.platform === 'Facebook' ? 'https://upload.wikimedia.org/wikipedia/commons/b/b9/2023_Facebook_icon.svg' : 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png';
-            row.innerHTML = `<td><img src="${iconUrl}" alt="${account.platform}" width="24" style="vertical-align: middle; margin-left: 8px;"> ${account.platform}</td><td>${account.name}</td><td><button class="btn-primary delete-account-btn" data-id="${account.docId}">حذف</button></td>`;
-            accountsTableBody.appendChild(row);
-        });
-    };
-
-    const fetchAndRenderAccounts = async () => {
-        if (!currentUserId) return renderAccounts([]);
-        try {
-            const snapshot = await db.collection('users').doc(currentUserId).collection('accounts').orderBy('createdAt', 'desc').get();
-            const accounts = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-            renderAccounts(accounts);
-        } catch (error) {
-            console.error("Firestore fetch error:", error);
-            renderAccounts([]);
-        }
-    };
-    
-    const handleFacebookLogin = async () => {
-        const provider = new firebase.auth.FacebookAuthProvider();
-        provider.addScope('public_profile,email,pages_show_list,pages_manage_posts');
-        try {
-            await auth.signInWithRedirect(provider);
-        } catch (error) {
-            console.error("Redirect Error Start:", error);
-        }
-    };
-
-    const handleRedirectResult = async () => {
-        try {
-            const result = await auth.getRedirectResult();
-            if (result && result.credential && result.user) {
-                const user = result.user;
-                currentUserId = user.uid;
-                const accessToken = result.credential.accessToken;
-                const response = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=name,access_token&access_token=${accessToken}`);
-                const res = await response.json();
-
-                if (res && res.data && res.data.length > 0) {
-                    const batch = db.batch();
-                    const accountsCollectionRef = db.collection('users').doc(currentUserId).collection('accounts');
-                    res.data.forEach(page => {
-                        const newAccountRef = accountsCollectionRef.doc(page.id);
-                        batch.set(newAccountRef, {
-                            platform: 'Facebook',
-                            id: page.id,
-                            name: page.name,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    });
-                    await batch.commit();
-                    alert('✅ تم ربط الحسابات بنجاح!');
-                    await fetchAndRenderAccounts();
-                } else if (res.error) {
-                    alert(`❌ خطأ من فيسبوك: ${res.error.message}`);
-                } else {
-                    alert("لم يتم العثور على أي صفحات فيسبوك مرتبطة بهذا الحساب.");
-                }
-            }
-        } catch (error) {
-            console.error("!!! CRITICAL REDIRECT ERROR !!!", error);
-        }
-    };
-
-    // --- مراقبة حالة المصادقة ---
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            currentUserId = user.uid;
-            fetchProducts();
-            fetchAndRenderAccounts();
-        } else {
-            currentUserId = null;
-            renderAccounts([]);
-            fetchProducts();
-        }
-    });
 
     // --- ربط الأحداث ---
-    navLinks.forEach(link => link.addEventListener('click', (e) => { e.preventDefault(); showPage(link.dataset.page + '-page'); }));
     if (imageUploadBtn) imageUploadBtn.addEventListener('click', () => cloudinaryWidget.open());
     if (imagesPreviewContainer) {
         imagesPreviewContainer.addEventListener('click', (e) => {
@@ -215,13 +152,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (saveProductBtn) {
         saveProductBtn.addEventListener('click', async () => {
-            if (!currentUserId) return alert('الرجاء تسجيل الدخول أولاً.');
             const name = productNameInput.value.trim();
             const notes = productNotesInput.value.trim();
             const productId = productIdInput.value;
             if (!name) return alert('الرجاء إدخال اسم المنتج.');
+            
             const productData = { name, notes, imageUrls: uploadedImageUrls, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
             const productCollection = db.collection('users').doc(currentUserId).collection('products');
+            
             try {
                 if (productId) {
                     await productCollection.doc(productId).update(productData);
@@ -234,17 +172,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetchProducts();
             } catch (error) {
                 console.error("Error saving product: ", error);
+                alert(`حدث خطأ أثناء الحفظ: ${error.message}`);
             }
         });
     }
     if (productsTableBody) {
         productsTableBody.addEventListener('click', async (e) => {
-            if (!currentUserId) return;
             const target = e.target;
             const id = target.dataset.id;
+            if (!id) return;
+
             const productRef = db.collection('users').doc(currentUserId).collection('products').doc(id);
 
-            // --- منطق زر مانوس الجديد ---
             if (target.classList.contains('btn-manus')) {
                 const manusResultCell = document.getElementById(`manus-result-${id}`);
                 manusResultCell.style.display = 'table-cell';
@@ -264,9 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         })
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`خطأ من مانوس: ${response.statusText}`);
-                    }
+                    if (!response.ok) throw new Error(`خطأ من مانوس: ${response.statusText}`);
 
                     const manusData = await response.json();
                     manusResultCell.innerHTML = `
@@ -298,7 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         uploadedImageUrls.forEach(addUploadedImage);
                         saveProductBtn.textContent = 'حفظ التعديلات';
                         cancelEditBtn.style.display = 'inline-block';
-                        showPage('products-page');
                         window.scrollTo(0, 0);
                     }
                 } catch (error) { console.error(error); }
@@ -306,23 +242,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     if (cancelEditBtn) cancelEditBtn.addEventListener('click', resetProductForm);
-    if (connectFacebookBtn) connectFacebookBtn.addEventListener('click', handleFacebookLogin);
-    if (accountsTableBody) {
-        accountsTableBody.addEventListener('click', async (e) => {
-            if (!currentUserId) return;
-            if (e.target.classList.contains('delete-account-btn')) {
-                const docId = e.target.dataset.id;
-                if (confirm('هل أنت متأكد؟')) {
-                    try {
-                        await db.collection('users').doc(currentUserId).collection('accounts').doc(docId).delete();
-                        fetchAndRenderAccounts();
-                    } catch (error) { console.error(error); }
-                }
-            }
-        });
-    }
-
-    // --- بدء تشغيل التطبيق ---
-    showPage('dashboard-page');
-    handleRedirectResult();
 });
