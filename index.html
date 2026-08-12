@@ -1,130 +1,23 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>استوديو المحتوى | مانوس</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --sidebar-bg: #2d3748; --sidebar-text: #a0aec0; --sidebar-text-hover: #ffffff; --sidebar-active-bg: #4a5568;
-            --main-bg: #f7fafc; --card-bg: #ffffff; --primary-color: #e53e3e; --secondary-color: #ddb837;
-            --text-dark: #2d3748; --text-light: #718096; --border-color: #e2e8f0;
-        }
-        body { font-family: 'Cairo', sans-serif; margin: 0; background-color: var(--main-bg); }
-        input, textarea, select { width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
-        button { padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; font-family: 'Cairo', sans-serif; }
-        .btn-primary { background-color: var(--primary-color); color: white; }
-        .btn-secondary { background-color: var(--text-light); color: white; }
-        .btn-manus { background-color: #8B5CF6; color: white; }
-
-        /* --- شاشة تسجيل الدخول --- */
-        #login-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--sidebar-bg); }
-        .login-box { background: var(--card-bg); padding: 2.5rem; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); text-align: center; width: 350px; }
-        .login-box h1 { color: var(--text-dark); margin-top: 0; margin-bottom: 0.5rem; }
-        .login-box p { color: var(--text-light); margin-bottom: 2rem; }
-        #login-error { color: var(--primary-color); margin-bottom: 1rem; display: none; }
-
-        /* --- لوحة التحكم --- */
-        .dashboard-container { display: none; flex-direction: row; min-height: 100vh; }
-        .sidebar { width: 260px; background-color: var(--sidebar-bg); color: var(--sidebar-text); padding: 1.5rem; display: flex; flex-direction: column; }
-        .sidebar-header { font-size: 1.5rem; font-weight: 700; color: white; text-align: center; margin-bottom: 2.5rem; }
-        .sidebar-nav a { display: flex; align-items: center; gap: 0.75rem; color: var(--sidebar-text); text-decoration: none; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; transition: all 0.2s; }
-        .sidebar-nav a:hover { background-color: var(--sidebar-active-bg); color: var(--sidebar-text-hover); }
-        .sidebar-nav a.active { background-color: var(--primary-color); color: white; }
-        .main-content { flex-grow: 1; padding: 2rem; }
-        .main-header { font-size: 1.75rem; font-weight: 600; color: var(--text-dark); margin-bottom: 2rem; }
-        .content-card { background-color: var(--card-bg); border-radius: 0.75rem; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
-        .page { display: none; }
-        .page.active { display: block; }
-        #image-upload-btn { background-color: var(--secondary-color); color: white; margin-bottom: 1rem; }
-        #product-images-preview { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-        .img-preview-container { position: relative; }
-        .img-preview-container img { width: 100px; height: 100px; object-fit: cover; border-radius: 0.5rem; }
-        .remove-img-btn { position: absolute; top: -5px; right: -5px; background: black; color: white; border-radius: 50%; width: 20px; height: 20px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: right; padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-        th { font-weight: 600; color: var(--text-light); }
-        .manus-result { background-color: #f3f4f6; font-size: 0.9rem; }
-        .manus-result p { margin: 0.5rem 0; }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Crypto Research Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="lab.css">
 </head>
 <body>
-
-    <!-- شاشة تسجيل الدخول -->
-    <div id="login-container">
-        <div class="login-box">
-            <h1>🚀 استوديو المحتوى</h1>
-            <p>بوابة الدخول الخاصة بمانوس</p>
-            <div id="login-error">اسم المستخدم أو كلمة المرور غير صحيحة.</div>
-            <input type="text" id="username-input" placeholder="اسم المستخدم">
-            <input type="password" id="password-input" placeholder="كلمة المرور">
-            <button id="login-btn" class="btn-primary" style="width: 100%;">دخول</button>
-        </div>
-    </div>
-
-    <!-- لوحة التحكم الرئيسية (مخفية) -->
-    <div class="dashboard-container" id="dashboard-main">
-        <aside class="sidebar">
-            <h1 class="sidebar-header">🚀 استوديو المحتوى</h1>
-            <nav class="sidebar-nav">
-                <a href="#" data-page="products" class="active">🛍️ إدارة المنتجات</a>
-                <a href="#" id="logout-btn">تسجيل الخروج</a>
-            </nav>
-        </aside>
-        <main class="main-content">
-            <div id="page-content">
-                <!-- صفحة إدارة المنتجات -->
-                <div id="products-page" class="page active">
-                    <h2 class="main-header">إدارة المنتجات</h2>
-                    <section class="content-card">
-                        <h3>إضافة / تعديل منتج</h3>
-                        <input type="hidden" id="product-id">
-                        <label for="product-name">اسم المنتج</label>
-                        <input type="text" id="product-name-input">
-                        
-                        <label for="product-notes">ملاحظات النشر (لمانوس)</label>
-                        <textarea id="product-notes-input" rows="4"></textarea>
-
-                        <label>صور المنتج</label>
-                        <button id="image-upload-btn">📂 اختر الصور</button>
-                        <div id="product-images-preview"></div>
-
-                        <button id="save-product-btn" class="btn-primary">حفظ المنتج</button>
-                        <button id="cancel-edit-btn" class="btn-secondary" style="display: none;">إلغاء التعديل</button>
-                    </section>
-                    <section class="content-card" style="margin-top: 2rem;">
-                        <h3>قائمة المنتجات</h3>
-                        <table id="products-table">
-                            <thead>
-                                <tr>
-                                    <th>اسم المنتج</th>
-                                    <th>الصور</th>
-                                    <th>إجراءات</th>
-                                    <th>محتوى مانوس</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- سيتم ملء المنتجات هنا -->
-                            </tbody>
-                        </table>
-                    </section>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- مكتبات Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    
-    <!-- مكتبة Cloudinary للرفع -->
-    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
-    
-    <!-- الكود الخاص بنا -->
-    <script src="main.js"></script>
+  <header class="topbar"><div><span class="eyebrow">AUTONOMOUS AI RESEARCH LAB</span><h1>مختبر التنبؤ بسوق العملات الرقمية</h1><p>من الفرضية إلى الاختبار الخلفي — كل نتيجة قابلة للتتبع وإعادة الإنتاج.</p></div><button id="runBtn" class="primary">بدء دورة بحث</button></header>
+  <main class="shell">
+    <section class="hero panel"><div><h2>محرك الأدلة، لا محرك الأمنيات</h2><p>لوحة محلية لمراقبة توليد المرشحين، هندسة الخصائص، التحقق الزمني، واختبارات المتانة عبر حالات السوق المختلفة.</p></div><div class="status"><i id="statusDot"></i><span id="statusText">جاهز للتجربة</span></div></section>
+    <section class="metrics grid-4"><article class="metric panel"><span>أفضل Sharpe</span><strong id="sharpe">—</strong><small>بعد التكاليف والانزلاق</small></article><article class="metric panel"><span>صافي العائد</span><strong id="return">—</strong><small>الاختبار خارج العينة</small></article><article class="metric panel"><span>أقصى سحب</span><strong id="drawdown">—</strong><small>مقياس الخطر</small></article><article class="metric panel"><span>التجارب</span><strong id="experiments">0</strong><small>مرشح محفوظ في السجل</small></article></section>
+    <section class="content-grid"><article class="panel chart-card"><div class="section-head"><div><span class="eyebrow">EVIDENCE STREAM</span><h2>منحنى رأس المال</h2></div><span class="tag" id="regime">لم تبدأ الدورة</span></div><canvas id="equityChart" height="235"></canvas><div class="legend"><span><i class="blue"></i>الاختبار الخلفي</span><span><i class="orange"></i>خط الأساس</span></div></article><article class="panel pipeline"><div class="section-head"><div><span class="eyebrow">RESEARCH LOOP</span><h2>دورة البحث</h2></div></div><div id="steps"></div></article></section>
+    <section class="panel table-card"><div class="section-head"><div><span class="eyebrow">MODEL REGISTRY</span><h2>سجل المرشحين</h2></div><button id="exportBtn" class="secondary">تصدير JSON</button></div><div class="table-wrap"><table><thead><tr><th>النموذج</th><th>الخصائص</th><th>الحالة</th><th>Sharpe</th><th>السحب</th><th>القرار</th></tr></thead><tbody id="modelRows"><tr><td colspan="6" class="empty">ابدأ دورة البحث لإنشاء أول سجل.</td></tr></tbody></table></div></section>
+    <section class="content-grid bottom"><article class="panel"><div class="section-head"><div><span class="eyebrow">FAILURE LOG</span><h2>سجل النقد الذاتي</h2></div></div><div id="failureLog" class="log"><p>لم تُسجل إخفاقات بعد. النموذج الذي لا ينجح ليس خسارة؛ إنه معلومة.</p></div></article><article class="panel"><div class="section-head"><div><span class="eyebrow">DATA CONTRACT</span><h2>مصادر وقيود البيانات</h2></div></div><div class="chips"><span>OHLCV</span><span>Order book</span><span>Funding</span><span>Open interest</span><span>Sentiment</span><span>On-chain</span><span>Macro</span></div><p class="note">لا تُقبل خاصية إلا إذا كان زمن توفرها معروفًا. كل تجربة تسجل مصدر البيانات، نافذة التنبؤ، نظام السوق، الرسوم، والانزلاق.</p></article></section>
+  </main>
+  <footer>Crypto Research Lab · نتائج بحثية تعليمية وليست توصية استثمارية</footer>
+  <script src="lab.js"></script>
 </body>
 </html>
