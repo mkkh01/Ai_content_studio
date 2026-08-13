@@ -30,7 +30,7 @@ class Config:
     walk_forward_windows: int = 4
     composite_min_score: float = 0.25
     min_window_sharpe: float = -0.5
-    feature_mode: str = 'core_regime'
+    feature_mode: str = 'liquidity'
     seed: int = 42
 
 class ResearchEngine:
@@ -73,6 +73,24 @@ class ResearchEngine:
         x['range'] = ((df['high'] - df['low']) / close).clip(-1, 1)
         x['close_location'] = (close - df['low']) / (df['high'] - df['low'] + 1e-12)
 
+        # Alternative feature families outside regime classification.
+        for n in [4, 12, 24, 48]:
+            rv = ret.rolling(n, min_periods=n).std()
+            x[f'alt_norm_ret_{n}'] = close.pct_change(n) / (rv * np.sqrt(n) + 1e-12)
+            x[f'alt_return_consistency_{n}'] = ret.rolling(n, min_periods=n).mean() / (ret.abs().rolling(n, min_periods=n).mean() + 1e-12)
+            x[f'alt_positive_fraction_{n}'] = (ret > 0).rolling(n, min_periods=n).mean()
+            x[f'alt_downside_semivar_{n}'] = ret.where(ret < 0, 0).pow(2).rolling(n, min_periods=n).mean().pow(0.5)
+            x[f'alt_upside_semivar_{n}'] = ret.where(ret > 0, 0).pow(2).rolling(n, min_periods=n).mean().pow(0.5)
+            roll_high, roll_low = close.rolling(n, min_periods=n).max(), close.rolling(n, min_periods=n).min()
+            x[f'alt_range_position_{n}'] = (close - roll_low) / (roll_high - roll_low + 1e-12)
+            typical = (df['high'] + df['low'] + close) / 3
+            vwap = (typical * df['volume']).rolling(n, min_periods=n).sum() / (df['volume'].rolling(n, min_periods=n).sum() + 1e-12)
+            x[f'alt_vwap_distance_{n}'] = close / (vwap + 1e-12) - 1
+        dollar_volume = close * df['volume']
+        x['alt_dollar_volume_percentile'] = dollar_volume.rolling(48, min_periods=48).rank(pct=True)
+        x['alt_illiquidity'] = ret.abs() / (dollar_volume + 1e-12)
+        x['alt_volume_concentration'] = df['volume'].rolling(24, min_periods=24).max() / (df['volume'].rolling(24, min_periods=24).sum() + 1e-12)
+
         # Advanced volatility features. All rolling statistics use only past/current bars.
         log_hl = np.log((df['high'] + 1e-12) / (df['low'] + 1e-12))
         log_co = np.log((close + 1e-12) / (df['open'] + 1e-12))
@@ -81,6 +99,7 @@ class ResearchEngine:
             (df['high'] - close.shift(1)).abs(),
             (df['low'] - close.shift(1)).abs(),
         ], axis=1).max(axis=1)
+        x['alt_cost_to_range'] = ((self.cfg.fee_bps + self.cfg.slippage_bps) / 10000) / (true_range / (close + 1e-12) + 1e-12)
         for n in [6, 12, 24, 48, 96]:
             atr = true_range.rolling(n, min_periods=n).mean() / (close + 1e-12)
             parkinson = np.sqrt((log_hl.pow(2).rolling(n, min_periods=n).mean()) / (4 * np.log(2)))
@@ -120,14 +139,22 @@ class ResearchEngine:
         if 'open_interest' in df:
             x['oi_change'] = pd.to_numeric(df['open_interest'], errors='coerce').pct_change()
         x = x.replace([np.inf, -np.inf], np.nan).dropna()
-        if self.cfg.feature_mode == 'baseline':
-            keep = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_'))]
-            x = x[keep]
-        elif self.cfg.feature_mode == 'core_regime':
-            base = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_'))]
-            core = [c for c in x.columns if c in {'trend_ema_gap_12_48','trend_ema_slope_12','trend_directional_efficiency','trend_adx_proxy','mtf_ret_96','mtf_vol_96','regime_trend_score','regime_high_vol','regime_sideways'}]
-            x = x[sorted(set(base + core))]
-        return x
+        base = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_') or c.startswith('alt_'))]
+        core = [c for c in x.columns if c in {'trend_ema_gap_12_48','trend_ema_slope_12','trend_directional_efficiency','trend_adx_proxy','mtf_ret_96','mtf_vol_96','regime_trend_score','regime_high_vol','regime_sideways'}]
+        alt_return = [c for c in x.columns if any(c.startswith(f'alt_{p}') for p in ['norm_ret_','return_consistency_','positive_fraction_','downside_semivar_','upside_semivar_'])]
+        alt_reversion = [c for c in x.columns if c.startswith('alt_range_position_') or c.startswith('alt_vwap_distance_')]
+        alt_liquidity = [c for c in x.columns if c in {'alt_dollar_volume_percentile','alt_illiquidity','alt_volume_concentration','alt_cost_to_range'}]
+        if self.cfg.feature_mode == 'core_regime': keep = base + core
+        elif self.cfg.feature_mode == 'return_path': keep = base + alt_return
+        elif self.cfg.feature_mode == 'reversion': keep = base + alt_reversion
+        elif self.cfg.feature_mode == 'liquidity': keep = base + alt_liquidity
+        elif self.cfg.feature_mode == 'return_reversion': keep = base + alt_return + alt_reversion
+        elif self.cfg.feature_mode == 'return_liquidity': keep = base + alt_return + alt_liquidity
+        elif self.cfg.feature_mode == 'alternative_full': keep = base + alt_return + alt_reversion + alt_liquidity
+        elif self.cfg.feature_mode == 'baseline': keep = base
+        elif self.cfg.feature_mode == 'full': keep = list(x.columns)
+        else: keep = base + core
+        return x[sorted(set(keep))]
 
     @staticmethod
     def target(df: pd.DataFrame, horizon: int) -> pd.Series:
