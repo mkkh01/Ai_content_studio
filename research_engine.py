@@ -100,6 +100,25 @@ class ResearchEngine:
             (df['low'] - close.shift(1)).abs(),
         ], axis=1).max(axis=1)
         x['alt_cost_to_range'] = ((self.cfg.fee_bps + self.cfg.slippage_bps) / 10000) / (true_range / (close + 1e-12) + 1e-12)
+
+        # Classical technical features, calculated from current and past bars only.
+        for n in [7, 14, 28]:
+            delta = close.diff()
+            gain = delta.clip(lower=0).rolling(n, min_periods=n).mean()
+            loss = (-delta.clip(upper=0)).rolling(n, min_periods=n).mean()
+            rs = gain / (loss + 1e-12)
+            x[f'ta_rsi_{n}'] = (100 - (100 / (1 + rs))) / 100.0
+            x[f'ta_atr_pct_{n}'] = true_range.rolling(n, min_periods=n).mean() / (close + 1e-12)
+            x[f'ta_atr_ratio_{n}'] = x[f'ta_atr_pct_{n}'] / (x[f'vol_adv_atr_{min(n, 96)}'] + 1e-12) if f'vol_adv_atr_{min(n, 96)}' in x else x[f'ta_atr_pct_{n}']
+        ema12 = close.ewm(span=12, adjust=False, min_periods=12).mean()
+        ema26 = close.ewm(span=26, adjust=False, min_periods=26).mean()
+        macd = ema12 - ema26
+        macd_signal = macd.ewm(span=9, adjust=False, min_periods=9).mean()
+        x['ta_macd_pct'] = macd / (close + 1e-12)
+        x['ta_macd_signal_pct'] = macd_signal / (close + 1e-12)
+        x['ta_macd_hist_pct'] = (macd - macd_signal) / (close + 1e-12)
+        x['ta_rsi_centered'] = x['ta_rsi_14'] - 0.5
+
         for n in [6, 12, 24, 48, 96]:
             atr = true_range.rolling(n, min_periods=n).mean() / (close + 1e-12)
             parkinson = np.sqrt((log_hl.pow(2).rolling(n, min_periods=n).mean()) / (4 * np.log(2)))
@@ -139,7 +158,7 @@ class ResearchEngine:
         if 'open_interest' in df:
             x['oi_change'] = pd.to_numeric(df['open_interest'], errors='coerce').pct_change()
         x = x.replace([np.inf, -np.inf], np.nan).dropna()
-        base = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_') or c.startswith('alt_'))]
+        base = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_') or c.startswith('alt_') or c.startswith('ta_'))]
         core = [c for c in x.columns if c in {'trend_ema_gap_12_48','trend_ema_slope_12','trend_directional_efficiency','trend_adx_proxy','mtf_ret_96','mtf_vol_96','regime_trend_score','regime_high_vol','regime_sideways'}]
         alt_return = [c for c in x.columns if any(c.startswith(f'alt_{p}') for p in ['norm_ret_','return_consistency_','positive_fraction_','downside_semivar_','upside_semivar_'])]
         alt_reversion = [c for c in x.columns if c.startswith('alt_range_position_') or c.startswith('alt_vwap_distance_')]
@@ -148,6 +167,7 @@ class ResearchEngine:
         elif self.cfg.feature_mode == 'return_path': keep = base + alt_return
         elif self.cfg.feature_mode == 'reversion': keep = base + alt_reversion
         elif self.cfg.feature_mode == 'liquidity': keep = base + alt_liquidity
+        elif self.cfg.feature_mode == 'technical': keep = base + [c for c in x.columns if c.startswith('ta_')]
         elif self.cfg.feature_mode == 'return_reversion': keep = base + alt_return + alt_reversion
         elif self.cfg.feature_mode == 'return_liquidity': keep = base + alt_return + alt_liquidity
         elif self.cfg.feature_mode == 'alternative_full': keep = base + alt_return + alt_reversion + alt_liquidity
