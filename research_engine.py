@@ -30,6 +30,7 @@ class Config:
     walk_forward_windows: int = 4
     composite_min_score: float = 0.25
     min_window_sharpe: float = -0.5
+    feature_mode: str = 'core_regime'
     seed: int = 42
 
 class ResearchEngine:
@@ -118,7 +119,15 @@ class ResearchEngine:
             x['funding_rate'] = pd.to_numeric(df['funding_rate'], errors='coerce')
         if 'open_interest' in df:
             x['oi_change'] = pd.to_numeric(df['open_interest'], errors='coerce').pct_change()
-        return x.replace([np.inf, -np.inf], np.nan).dropna()
+        x = x.replace([np.inf, -np.inf], np.nan).dropna()
+        if self.cfg.feature_mode == 'baseline':
+            keep = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_'))]
+            x = x[keep]
+        elif self.cfg.feature_mode == 'core_regime':
+            base = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_'))]
+            core = [c for c in x.columns if c in {'trend_ema_gap_12_48','trend_ema_slope_12','trend_directional_efficiency','trend_adx_proxy','mtf_ret_96','mtf_vol_96','regime_trend_score','regime_high_vol','regime_sideways'}]
+            x = x[sorted(set(base + core))]
+        return x
 
     @staticmethod
     def target(df: pd.DataFrame, horizon: int) -> pd.Series:
