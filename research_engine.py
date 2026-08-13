@@ -22,6 +22,11 @@ class Config:
     atr_stop_mult: float = 2.0
     atr_trail_mult: float = 2.5
     min_stop_pct: float = 0.001
+    risk_per_trade: float = 0.0025
+    max_position_size: float = 1.0
+    time_stop_fraction: float = 0.5
+    breakeven_trigger_atr: float = 1.0
+    breakeven_offset_bps: float = 0.0
     seed: int = 42
 
 class ResearchEngine:
@@ -95,48 +100,43 @@ class ResearchEngine:
         return df['close'].shift(-horizon) / df['close'] - 1
 
     def score(self, pred: pd.Series, actual: pd.Series, price: pd.Series, threshold: float, horizon: int = 1, high: pd.Series | None = None, low: pd.Series | None = None) -> dict:
-        """Score independent trades with an optional ATR initial/trailing stop.
-
-        Entries are sampled every ``horizon`` bars, so labels do not overlap. When
-        OHLC is supplied, each trade is walked bar by bar using only information
-        available at entry and subsequent bars; no future close is used to set a stop.
-        """
+        """Score independent trades with ATR sizing, trailing/breakeven/time stops."""
         horizon = max(1, int(horizon))
         parts = [pred.rename('pred'), actual.rename('actual'), price.rename('price')]
-        if high is not None and low is not None:
-            parts += [high.rename('high'), low.rename('low')]
+        if high is not None and low is not None: parts += [high.rename('high'), low.rename('low')]
         z = pd.concat(parts, axis=1).dropna()
         if len(z) < 2:
-            return {'sharpe': -99, 'net_return': -100, 'max_drawdown': -100, 'trades': 0, 'coverage': 0.0, 'observations': len(z), 'stop_exits': 0, 'avg_hold_bars': 0.0}
+            return {'sharpe': -99, 'net_return': -100, 'max_drawdown': -100, 'trades': 0, 'coverage': 0.0, 'observations': len(z), 'stop_exits': 0, 'time_exits': 0, 'breakeven_exits': 0, 'avg_hold_bars': 0.0, 'avg_position_size': 0.0}
         entries = z.iloc[::horizon]
-        gross_returns, trade_costs, signals, stop_exits, holds = [], [], [], 0, []
+        gross_returns, trade_costs, signals, stop_exits, time_exits, breakeven_exits, holds, sizes = [], [], [], 0, 0, 0, [], []
         tr = (z['high'] - z['low']).combine((z['high'] - z['price'].shift(1)).abs(), max).combine((z['low'] - z['price'].shift(1)).abs(), max) if {'high','low'}.issubset(z.columns) else None
         atr_series = tr.rolling(24, min_periods=2).mean() if tr is not None else None
         for label, row in entries.iterrows():
-            signal = 1 if row['pred'] > threshold else (-1 if row['pred'] < -threshold else 0)
-            signals.append(signal)
+            signal = 1 if row['pred'] > threshold else (-1 if row['pred'] < -threshold else 0); signals.append(signal)
             if signal == 0:
-                gross_returns.append(0.0); trade_costs.append(0.0); holds.append(0); continue
-            entry_pos = z.index.get_loc(label); entry = float(row['price']); end_pos = min(entry_pos + horizon, len(z) - 1)
+                gross_returns.append(0.0); trade_costs.append(0.0); holds.append(0); sizes.append(0.0); continue
+            entry_pos = z.index.get_loc(label); entry = float(row['price']); max_hold = max(1, int(round(horizon * self.cfg.time_stop_fraction)))
+            end_pos = min(entry_pos + max_hold, len(z) - 1)
             atr = float(atr_series.iloc[entry_pos]) if atr_series is not None and np.isfinite(atr_series.iloc[entry_pos]) else entry * self.cfg.min_stop_pct
-            stop_dist = max(atr * self.cfg.atr_stop_mult, entry * self.cfg.min_stop_pct)
-            trail_dist = max(atr * self.cfg.atr_trail_mult, entry * self.cfg.min_stop_pct)
-            exit_price = float(z['price'].iloc[end_pos]); held = end_pos - entry_pos; stopped = False
+            stop_dist = max(atr * self.cfg.atr_stop_mult, entry * self.cfg.min_stop_pct); trail_dist = max(atr * self.cfg.atr_trail_mult, entry * self.cfg.min_stop_pct)
+            size = min(self.cfg.max_position_size, self.cfg.risk_per_trade / max(stop_dist / entry, 1e-9)); sizes.append(size)
+            exit_price = float(z['price'].iloc[end_pos]); held = end_pos - entry_pos; stopped = timed = breakeven = False; peak = entry; trough = entry; stop = entry - signal * stop_dist
             if self.cfg.risk_enabled and {'high','low'}.issubset(z.columns):
-                peak = entry; trough = entry
                 for pos in range(entry_pos + 1, end_pos + 1):
                     bar_high, bar_low = float(z['high'].iloc[pos]), float(z['low'].iloc[pos])
                     if signal == 1:
                         peak = max(peak, bar_high); stop = max(entry - stop_dist, peak - trail_dist)
+                        if peak >= entry + self.cfg.breakeven_trigger_atr * atr: stop = max(stop, entry * (1 + self.cfg.breakeven_offset_bps / 10000)); breakeven = True
                         if bar_low <= stop: exit_price, held, stopped = stop, pos - entry_pos, True; break
                     else:
                         trough = min(trough, bar_low); stop = min(entry + stop_dist, trough + trail_dist)
+                        if trough <= entry - self.cfg.breakeven_trigger_atr * atr: stop = min(stop, entry * (1 - self.cfg.breakeven_offset_bps / 10000)); breakeven = True
                         if bar_high >= stop: exit_price, held, stopped = stop, pos - entry_pos, True; break
-            gross_returns.append(signal * (exit_price / entry - 1)); trade_costs.append((self.cfg.fee_bps + self.cfg.slippage_bps) / 10000); holds.append(held); stop_exits += int(stopped)
-        strategy_returns = np.asarray(gross_returns) - np.asarray(trade_costs)
-        equity = np.cumprod(1 + strategy_returns); peak_eq = np.maximum.accumulate(equity); drawdown = equity / peak_eq - 1
+                if not stopped and end_pos == min(entry_pos + max_hold, len(z) - 1): timed = True
+            gross_returns.append(size * signal * (exit_price / entry - 1)); trade_costs.append(size * (self.cfg.fee_bps + self.cfg.slippage_bps) / 10000); holds.append(held); stop_exits += int(stopped); time_exits += int(timed and not stopped); breakeven_exits += int(breakeven and stopped)
+        strategy_returns = np.asarray(gross_returns) - np.asarray(trade_costs); equity = np.cumprod(1 + strategy_returns); peak_eq = np.maximum.accumulate(equity); drawdown = equity / peak_eq - 1
         active = np.asarray(signals) != 0; sharpe = np.sqrt(self.cfg.bars_per_year / horizon) * np.mean(strategy_returns) / (np.std(strategy_returns) + 1e-12)
-        return {'sharpe': round(float(sharpe), 4), 'net_return': round(float((equity[-1] - 1) * 100), 4), 'max_drawdown': round(float(drawdown.min() * 100), 4), 'trades': int(active.sum()), 'coverage': round(float(active.mean()), 4), 'observations': int(len(entries)), 'stop_exits': int(stop_exits), 'avg_hold_bars': round(float(np.mean([h for h, s in zip(holds, active) if s]) if active.any() else 0), 4)}
+        return {'sharpe': round(float(sharpe), 4), 'net_return': round(float((equity[-1] - 1) * 100), 4), 'max_drawdown': round(float(drawdown.min() * 100), 4), 'trades': int(active.sum()), 'coverage': round(float(active.mean()), 4), 'observations': int(len(entries)), 'stop_exits': int(stop_exits), 'time_exits': int(time_exits), 'breakeven_exits': int(breakeven_exits), 'avg_hold_bars': round(float(np.mean([h for h, s in zip(holds, active) if s]) if active.any() else 0), 4), 'avg_position_size': round(float(np.mean([s for s, a in zip(sizes, active) if a]) if active.any() else 0), 4)}
 
     def fit_predict(self, a: np.ndarray, y: np.ndarray, train_slice: slice, pred_slice: slice, lam: float) -> np.ndarray:
         train_x, train_y = a[train_slice], y[train_slice]
