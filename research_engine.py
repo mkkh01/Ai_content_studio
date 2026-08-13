@@ -27,6 +27,9 @@ class Config:
     time_stop_fraction: float = 0.5
     breakeven_trigger_atr: float = 1.0
     breakeven_offset_bps: float = 0.0
+    walk_forward_windows: int = 4
+    composite_min_score: float = 0.25
+    min_window_sharpe: float = -0.5
     seed: int = 42
 
 class ResearchEngine:
@@ -176,29 +179,46 @@ class ResearchEngine:
         test_y, test_p = y.reindex(X.index).iloc[test_start:], price.reindex(X.index).iloc[test_start:]
         metrics = self.score(pd.Series(test_pred, index=test_y.index), test_y, test_p, threshold, horizon, high.reindex(X.index).iloc[test_start:] if high is not None else None, low.reindex(X.index).iloc[test_start:] if low is not None else None)
         validation_sharpe = round(max(val_scores)[0], 4)
-        accepted = (validation_sharpe > 0 and metrics['sharpe'] > 0.5 and metrics['max_drawdown'] > -35 and metrics['trades'] >= 5 and metrics.get('observations', 0) >= self.cfg.min_score_observations)
         return {
             'name': f'RidgeSearch-{i:03d}', 'features': k, 'horizon': horizon, 'window': window,
             'feature_names': chosen, 'lambda': best_lam, 'neutral_threshold': round(threshold, 8),
-            'validation_sharpe': validation_sharpe, 'metrics': metrics, 'accepted': accepted,
-            'failure': None if accepted else 'validation/test robustness or trade-count threshold failed',
+            'validation_sharpe': validation_sharpe, 'metrics': metrics,
+            'failure': 'single-window metrics retained for diagnostics',
         }
 
+    def walk_forward_metrics(self, X: pd.DataFrame, y: pd.Series, price: pd.Series, high: pd.Series, low: pd.Series, horizon: int, chosen: list[str], lam: float, threshold: float) -> dict:
+        """Evaluate fixed features/parameters over independent forward windows."""
+        n = len(X); fold = max(48, int(n * 0.12)); a = X[chosen].to_numpy(); yy = y.reindex(X.index).to_numpy()
+        train_window = min(self.cfg.train_window, max(24, int(n * .45))); windows = []
+        for w in range(self.cfg.walk_forward_windows):
+            test_start = int(n * (.48 + w * .12)) + horizon; test_end = min(test_start + fold, n)
+            train_end = test_start - horizon; train_start = max(0, train_end - train_window)
+            if test_end - test_start < max(3, horizon): continue
+            pred = self.fit_predict(a, yy, slice(train_start, train_end), slice(test_start, test_end), lam)
+            sy = y.reindex(X.index).iloc[test_start:test_end]; sp = price.reindex(X.index).iloc[test_start:test_end]
+            sh = high.reindex(X.index).iloc[test_start:test_end]; sl = low.reindex(X.index).iloc[test_start:test_end]
+            metric = self.score(pd.Series(pred, index=sy.index), sy, sp, threshold, horizon, sh, sl)
+            windows.append({'window': w + 1, 'test_start': str(X.index[test_start]), 'test_end': str(X.index[test_end - 1]), **metric})
+        if not windows: return {'windows': [], 'composite_score': -99, 'median_sharpe': -99, 'std_sharpe': 99, 'positive_windows': 0, 'mean_return': -100, 'mean_trades': 0}
+        wd = pd.DataFrame(windows); median_sharpe = float(wd.sharpe.median()); std_sharpe = float(wd.sharpe.std(ddof=0)); mean_return = float(wd.net_return.mean()); composite = median_sharpe - .5 * std_sharpe + .25 * mean_return - (0.25 if wd.trades.mean() < 5 else 0)
+        return {'windows': windows, 'composite_score': round(composite, 4), 'median_sharpe': round(median_sharpe, 4), 'std_sharpe': round(std_sharpe, 4), 'min_sharpe': round(float(wd.sharpe.min()), 4), 'positive_windows': int((wd.sharpe > 0).sum()), 'mean_return': round(mean_return, 4), 'mean_trades': round(float(wd.trades.mean()), 4), 'mean_drawdown': round(float(wd.max_drawdown.mean()), 4)}
+
     def run(self, df: pd.DataFrame, out: str) -> list[dict]:
-        outp = Path(out); outp.mkdir(parents=True, exist_ok=True)
-        X = self.features(df); results = []
+        outp = Path(out); outp.mkdir(parents=True, exist_ok=True); X = self.features(df); results = []
         data_hash = hashlib.sha256(pd.util.hash_pandas_object(df, index=True).values.tobytes()).hexdigest()[:16]
         for i in range(self.cfg.iterations):
-            horizon = int(self.rng.choice([1, 3, 6, 12, 24]))
-            y = self.target(df, horizon).reindex(X.index)
+            horizon = int(self.rng.choice([1, 3, 6, 12, 24])); y = self.target(df, horizon).reindex(X.index)
             result = self.candidate(X, y, df['close'], horizon, i, df['high'], df['low'])
-            result.update({'config': asdict(self.cfg), 'data_hash': data_hash, 'data_rows': len(df)})
-            results.append(result)
-            with (outp / 'experiment_log.jsonl').open('a', encoding='utf8') as f:
-                f.write(json.dumps(result, ensure_ascii=False) + '\n')
-        results.sort(key=lambda r: r.get('metrics', {}).get('sharpe', -99), reverse=True)
+            if 'feature_names' in result:
+                wf = self.walk_forward_metrics(X, y, df['close'], df['high'], df['low'], horizon, result['feature_names'], result['lambda'], result['neutral_threshold'])
+                result['walk_forward'] = wf; result['composite_score'] = wf['composite_score']
+                result['accepted'] = (len(wf['windows']) >= 3 and wf['composite_score'] > self.cfg.composite_min_score and wf['min_sharpe'] > self.cfg.min_window_sharpe and wf['positive_windows'] >= 3 and wf['mean_trades'] >= 5)
+                result['failure'] = None if result['accepted'] else 'composite walk-forward criteria failed'
+            result.update({'config': asdict(self.cfg), 'data_hash': data_hash, 'data_rows': len(df)}); results.append(result)
+            with (outp / 'experiment_log.jsonl').open('a', encoding='utf8') as f: f.write(json.dumps(result, ensure_ascii=False) + '\n')
+        results.sort(key=lambda r: r.get('composite_score', -99), reverse=True)
         (outp / 'model_registry.json').write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf8')
-        summary = {'best': results[0] if results else None, 'experiments': len(results), 'data_rows': len(df), 'feature_count': X.shape[1], 'failure_count': sum(not r['accepted'] for r in results)}
+        summary = {'best': results[0] if results else None, 'experiments': len(results), 'data_rows': len(df), 'feature_count': X.shape[1], 'failure_count': sum(not r['accepted'] for r in results), 'acceptance_rule': 'composite_score > threshold, >=3 positive windows, min window Sharpe, mean trades'}
         (outp / 'decision_history.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf8')
         return results
 
