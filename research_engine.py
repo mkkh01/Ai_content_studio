@@ -91,6 +91,29 @@ class ResearchEngine:
             x[f'vol_adv_gk_{n}'] = garman_klass
             x[f'vol_adv_realized_{n}'] = realized
             x[f'vol_adv_ratio_{n}'] = realized / (realized.rolling(max(2, n * 4), min_periods=max(2, n * 4)).mean() + 1e-12)
+        # Trend, regime and multi-timeframe features; all use data available up to t.
+        for fast, slow in [(6, 24), (12, 48), (24, 96)]:
+            ema_fast = close.ewm(span=fast, adjust=False, min_periods=fast).mean()
+            ema_slow = close.ewm(span=slow, adjust=False, min_periods=slow).mean()
+            x[f'trend_ema_gap_{fast}_{slow}'] = ema_fast / (ema_slow + 1e-12) - 1
+            x[f'trend_ema_slope_{fast}'] = ema_fast.pct_change(fast)
+        directional = (close.diff().rolling(14, min_periods=14).mean() / (ret.abs().rolling(14, min_periods=14).mean() + 1e-12)).clip(-5, 5)
+        x['trend_directional_efficiency'] = directional
+        x['trend_adx_proxy'] = (df['high'].diff().clip(lower=0).rolling(14, min_periods=14).mean() + (-df['low'].diff()).clip(lower=0).rolling(14, min_periods=14).mean()) / (true_range.rolling(14, min_periods=14).mean() + 1e-12)
+        for n in [24, 96, 288]:
+            x[f'mtf_ret_{n}'] = close.pct_change(n)
+            x[f'mtf_vol_{n}'] = ret.rolling(n, min_periods=n).std()
+        regime_score = x['trend_ema_gap_12_48'].fillna(0) / (x['vol_24'].fillna(0) + 1e-12)
+        x['regime_trend_score'] = regime_score.clip(-10, 10)
+        x['regime_high_vol'] = (x['vol_24'] > x['vol_24'].rolling(96, min_periods=24).median()).astype(float)
+        x['regime_sideways'] = (x['trend_directional_efficiency'].abs() < 0.35).astype(float)
+        # Regime-conditioned interactions let the linear model use different
+        # responses for trend continuation versus mean-reversion conditions.
+        x['regime_up_mask'] = (x['regime_trend_score'] > 0.5).astype(float)
+        x['regime_down_mask'] = (x['regime_trend_score'] < -0.5).astype(float)
+        x['regime_trend_momentum'] = x['regime_trend_score'] * x['ret_24']
+        x['regime_sideways_reversion'] = x['regime_sideways'] * x['z_24']
+        x['regime_highvol_return'] = x['regime_high_vol'] * x['ret_6']
         if 'funding_rate' in df:
             x['funding_rate'] = pd.to_numeric(df['funding_rate'], errors='coerce')
         if 'open_interest' in df:
