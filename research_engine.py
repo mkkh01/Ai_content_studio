@@ -17,6 +17,7 @@ class Config:
     slippage_bps: float = 4.0
     neutral_vol_fraction: float = .25
     bars_per_year: int = 24 * 365
+    min_score_observations: int = 20
     seed: int = 42
 
 class ResearchEngine:
@@ -31,7 +32,14 @@ class ResearchEngine:
         if missing:
             raise ValueError(f'Missing columns: {sorted(missing)}')
         df = df.copy()
-        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+        raw_timestamp = df['timestamp']
+        numeric_timestamp = pd.to_numeric(raw_timestamp, errors='coerce')
+        if numeric_timestamp.notna().mean() > 0.95:
+            magnitude = float(numeric_timestamp.dropna().abs().median())
+            unit = 'us' if magnitude > 1e14 else ('ms' if magnitude > 1e11 else 's')
+            df['timestamp'] = pd.to_datetime(numeric_timestamp, unit=unit, utc=True, errors='coerce')
+        else:
+            df['timestamp'] = pd.to_datetime(raw_timestamp, utc=True, errors='coerce')
         for c in ['open', 'high', 'low', 'close', 'volume']:
             df[c] = pd.to_numeric(df[c], errors='coerce')
         df = df.dropna(subset=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -62,10 +70,17 @@ class ResearchEngine:
         # Keep only realizable future returns; never turn missing targets into zero.
         return df['close'].shift(-horizon) / df['close'] - 1
 
-    def score(self, pred: pd.Series, actual: pd.Series, price: pd.Series, threshold: float) -> dict:
+    def score(self, pred: pd.Series, actual: pd.Series, price: pd.Series, threshold: float, horizon: int = 1) -> dict:
+        """Score only independent horizon returns; overlapping labels are excluded.
+
+        For a 24-bar target, observations at t, t+24, t+48 ... are evaluated.
+        Sharpe is annualized with bars_per_year / horizon, not bars_per_year.
+        """
+        horizon = max(1, int(horizon))
         z = pd.concat([pred.rename('pred'), actual.rename('actual'), price.rename('price')], axis=1).dropna()
+        z = z.iloc[::horizon]
         if len(z) < 2:
-            return {'sharpe': -99, 'net_return': -100, 'max_drawdown': -100, 'trades': 0, 'coverage': 0.0}
+            return {'sharpe': -99, 'net_return': -100, 'max_drawdown': -100, 'trades': 0, 'coverage': 0.0, 'observations': len(z)}
         signal = np.where(z['pred'] > threshold, 1, np.where(z['pred'] < -threshold, -1, 0))
         turnover = np.abs(np.diff(np.r_[0, signal]))
         costs = turnover * (self.cfg.fee_bps + self.cfg.slippage_bps) / 10000
@@ -74,13 +89,14 @@ class ResearchEngine:
         peak = np.maximum.accumulate(equity)
         drawdown = equity / peak - 1
         active = signal != 0
-        sharpe = np.sqrt(self.cfg.bars_per_year) * np.mean(strategy_returns) / (np.std(strategy_returns) + 1e-12)
+        sharpe = np.sqrt(self.cfg.bars_per_year / horizon) * np.mean(strategy_returns) / (np.std(strategy_returns) + 1e-12)
         return {
             'sharpe': round(float(sharpe), 4),
             'net_return': round(float((equity[-1] - 1) * 100), 4),
             'max_drawdown': round(float(drawdown.min() * 100), 4),
             'trades': int(turnover.sum()),
             'coverage': round(float(active.mean()), 4),
+            'observations': int(len(z)),
         }
 
     def fit_predict(self, a: np.ndarray, y: np.ndarray, train_slice: slice, pred_slice: slice, lam: float) -> np.ndarray:
@@ -115,13 +131,13 @@ class ResearchEngine:
             vp = self.fit_predict(a, yy, slice(train_start, train_end), slice(val_start, val_end), lam)
             val_y, val_p = y.reindex(X.index).iloc[val_start:val_end], price.reindex(X.index).iloc[val_start:val_end]
             threshold = 2 * (self.cfg.fee_bps + self.cfg.slippage_bps) / 10000 + self.cfg.neutral_vol_fraction * float(np.nanstd(yy[train_start:train_end]))
-            val_scores.append((self.score(pd.Series(vp, index=val_y.index), val_y, val_p, threshold)['sharpe'], lam, threshold))
+            val_scores.append((self.score(pd.Series(vp, index=val_y.index), val_y, val_p, threshold, horizon)['sharpe'], lam, threshold))
         _, best_lam, threshold = max(val_scores, key=lambda t: t[0])
         test_pred = self.fit_predict(a, yy, slice(train_start, train_end), slice(test_start, n), best_lam)
         test_y, test_p = y.reindex(X.index).iloc[test_start:], price.reindex(X.index).iloc[test_start:]
-        metrics = self.score(pd.Series(test_pred, index=test_y.index), test_y, test_p, threshold)
+        metrics = self.score(pd.Series(test_pred, index=test_y.index), test_y, test_p, threshold, horizon)
         validation_sharpe = round(max(val_scores)[0], 4)
-        accepted = validation_sharpe > 0 and metrics['sharpe'] > 0.5 and metrics['max_drawdown'] > -35 and metrics['trades'] >= 5
+        accepted = (validation_sharpe > 0 and metrics['sharpe'] > 0.5 and metrics['max_drawdown'] > -35 and metrics['trades'] >= 5 and metrics.get('observations', 0) >= self.cfg.min_score_observations)
         return {
             'name': f'RidgeSearch-{i:03d}', 'features': k, 'horizon': horizon, 'window': window,
             'feature_names': chosen, 'lambda': best_lam, 'neutral_threshold': round(threshold, 8),
