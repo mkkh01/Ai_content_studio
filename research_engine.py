@@ -18,6 +18,10 @@ class Config:
     neutral_vol_fraction: float = .25
     bars_per_year: int = 24 * 365
     min_score_observations: int = 20
+    risk_enabled: bool = True
+    atr_stop_mult: float = 2.0
+    atr_trail_mult: float = 2.5
+    min_stop_pct: float = 0.001
     seed: int = 42
 
 class ResearchEngine:
@@ -90,34 +94,49 @@ class ResearchEngine:
         # Keep only realizable future returns; never turn missing targets into zero.
         return df['close'].shift(-horizon) / df['close'] - 1
 
-    def score(self, pred: pd.Series, actual: pd.Series, price: pd.Series, threshold: float, horizon: int = 1) -> dict:
-        """Score only independent horizon returns; overlapping labels are excluded.
+    def score(self, pred: pd.Series, actual: pd.Series, price: pd.Series, threshold: float, horizon: int = 1, high: pd.Series | None = None, low: pd.Series | None = None) -> dict:
+        """Score independent trades with an optional ATR initial/trailing stop.
 
-        For a 24-bar target, observations at t, t+24, t+48 ... are evaluated.
-        Sharpe is annualized with bars_per_year / horizon, not bars_per_year.
+        Entries are sampled every ``horizon`` bars, so labels do not overlap. When
+        OHLC is supplied, each trade is walked bar by bar using only information
+        available at entry and subsequent bars; no future close is used to set a stop.
         """
         horizon = max(1, int(horizon))
-        z = pd.concat([pred.rename('pred'), actual.rename('actual'), price.rename('price')], axis=1).dropna()
-        z = z.iloc[::horizon]
+        parts = [pred.rename('pred'), actual.rename('actual'), price.rename('price')]
+        if high is not None and low is not None:
+            parts += [high.rename('high'), low.rename('low')]
+        z = pd.concat(parts, axis=1).dropna()
         if len(z) < 2:
-            return {'sharpe': -99, 'net_return': -100, 'max_drawdown': -100, 'trades': 0, 'coverage': 0.0, 'observations': len(z)}
-        signal = np.where(z['pred'] > threshold, 1, np.where(z['pred'] < -threshold, -1, 0))
-        turnover = np.abs(np.diff(np.r_[0, signal]))
-        costs = turnover * (self.cfg.fee_bps + self.cfg.slippage_bps) / 10000
-        strategy_returns = signal * z['actual'].to_numpy() - costs
-        equity = np.cumprod(1 + strategy_returns)
-        peak = np.maximum.accumulate(equity)
-        drawdown = equity / peak - 1
-        active = signal != 0
-        sharpe = np.sqrt(self.cfg.bars_per_year / horizon) * np.mean(strategy_returns) / (np.std(strategy_returns) + 1e-12)
-        return {
-            'sharpe': round(float(sharpe), 4),
-            'net_return': round(float((equity[-1] - 1) * 100), 4),
-            'max_drawdown': round(float(drawdown.min() * 100), 4),
-            'trades': int(turnover.sum()),
-            'coverage': round(float(active.mean()), 4),
-            'observations': int(len(z)),
-        }
+            return {'sharpe': -99, 'net_return': -100, 'max_drawdown': -100, 'trades': 0, 'coverage': 0.0, 'observations': len(z), 'stop_exits': 0, 'avg_hold_bars': 0.0}
+        entries = z.iloc[::horizon]
+        gross_returns, trade_costs, signals, stop_exits, holds = [], [], [], 0, []
+        tr = (z['high'] - z['low']).combine((z['high'] - z['price'].shift(1)).abs(), max).combine((z['low'] - z['price'].shift(1)).abs(), max) if {'high','low'}.issubset(z.columns) else None
+        atr_series = tr.rolling(24, min_periods=2).mean() if tr is not None else None
+        for label, row in entries.iterrows():
+            signal = 1 if row['pred'] > threshold else (-1 if row['pred'] < -threshold else 0)
+            signals.append(signal)
+            if signal == 0:
+                gross_returns.append(0.0); trade_costs.append(0.0); holds.append(0); continue
+            entry_pos = z.index.get_loc(label); entry = float(row['price']); end_pos = min(entry_pos + horizon, len(z) - 1)
+            atr = float(atr_series.iloc[entry_pos]) if atr_series is not None and np.isfinite(atr_series.iloc[entry_pos]) else entry * self.cfg.min_stop_pct
+            stop_dist = max(atr * self.cfg.atr_stop_mult, entry * self.cfg.min_stop_pct)
+            trail_dist = max(atr * self.cfg.atr_trail_mult, entry * self.cfg.min_stop_pct)
+            exit_price = float(z['price'].iloc[end_pos]); held = end_pos - entry_pos; stopped = False
+            if self.cfg.risk_enabled and {'high','low'}.issubset(z.columns):
+                peak = entry; trough = entry
+                for pos in range(entry_pos + 1, end_pos + 1):
+                    bar_high, bar_low = float(z['high'].iloc[pos]), float(z['low'].iloc[pos])
+                    if signal == 1:
+                        peak = max(peak, bar_high); stop = max(entry - stop_dist, peak - trail_dist)
+                        if bar_low <= stop: exit_price, held, stopped = stop, pos - entry_pos, True; break
+                    else:
+                        trough = min(trough, bar_low); stop = min(entry + stop_dist, trough + trail_dist)
+                        if bar_high >= stop: exit_price, held, stopped = stop, pos - entry_pos, True; break
+            gross_returns.append(signal * (exit_price / entry - 1)); trade_costs.append((self.cfg.fee_bps + self.cfg.slippage_bps) / 10000); holds.append(held); stop_exits += int(stopped)
+        strategy_returns = np.asarray(gross_returns) - np.asarray(trade_costs)
+        equity = np.cumprod(1 + strategy_returns); peak_eq = np.maximum.accumulate(equity); drawdown = equity / peak_eq - 1
+        active = np.asarray(signals) != 0; sharpe = np.sqrt(self.cfg.bars_per_year / horizon) * np.mean(strategy_returns) / (np.std(strategy_returns) + 1e-12)
+        return {'sharpe': round(float(sharpe), 4), 'net_return': round(float((equity[-1] - 1) * 100), 4), 'max_drawdown': round(float(drawdown.min() * 100), 4), 'trades': int(active.sum()), 'coverage': round(float(active.mean()), 4), 'observations': int(len(entries)), 'stop_exits': int(stop_exits), 'avg_hold_bars': round(float(np.mean([h for h, s in zip(holds, active) if s]) if active.any() else 0), 4)}
 
     def fit_predict(self, a: np.ndarray, y: np.ndarray, train_slice: slice, pred_slice: slice, lam: float) -> np.ndarray:
         train_x, train_y = a[train_slice], y[train_slice]
@@ -131,7 +150,7 @@ class ResearchEngine:
         w = np.linalg.solve(train_x.T @ train_x + lam * np.eye(train_x.shape[1]), train_x.T @ train_y)
         return pred_x @ w
 
-    def candidate(self, X: pd.DataFrame, y: pd.Series, price: pd.Series, horizon: int, i: int) -> dict:
+    def candidate(self, X: pd.DataFrame, y: pd.Series, price: pd.Series, horizon: int, i: int, high: pd.Series | None = None, low: pd.Series | None = None) -> dict:
         n = len(X)
         train_end = int(n * self.cfg.train_ratio)
         val_end = int(n * (self.cfg.train_ratio + self.cfg.validation_ratio))
@@ -151,11 +170,11 @@ class ResearchEngine:
             vp = self.fit_predict(a, yy, slice(train_start, train_end), slice(val_start, val_end), lam)
             val_y, val_p = y.reindex(X.index).iloc[val_start:val_end], price.reindex(X.index).iloc[val_start:val_end]
             threshold = 2 * (self.cfg.fee_bps + self.cfg.slippage_bps) / 10000 + self.cfg.neutral_vol_fraction * float(np.nanstd(yy[train_start:train_end]))
-            val_scores.append((self.score(pd.Series(vp, index=val_y.index), val_y, val_p, threshold, horizon)['sharpe'], lam, threshold))
+            val_scores.append((self.score(pd.Series(vp, index=val_y.index), val_y, val_p, threshold, horizon, high.reindex(X.index).iloc[val_start:val_end] if high is not None else None, low.reindex(X.index).iloc[val_start:val_end] if low is not None else None)['sharpe'], lam, threshold))
         _, best_lam, threshold = max(val_scores, key=lambda t: t[0])
         test_pred = self.fit_predict(a, yy, slice(train_start, train_end), slice(test_start, n), best_lam)
         test_y, test_p = y.reindex(X.index).iloc[test_start:], price.reindex(X.index).iloc[test_start:]
-        metrics = self.score(pd.Series(test_pred, index=test_y.index), test_y, test_p, threshold, horizon)
+        metrics = self.score(pd.Series(test_pred, index=test_y.index), test_y, test_p, threshold, horizon, high.reindex(X.index).iloc[test_start:] if high is not None else None, low.reindex(X.index).iloc[test_start:] if low is not None else None)
         validation_sharpe = round(max(val_scores)[0], 4)
         accepted = (validation_sharpe > 0 and metrics['sharpe'] > 0.5 and metrics['max_drawdown'] > -35 and metrics['trades'] >= 5 and metrics.get('observations', 0) >= self.cfg.min_score_observations)
         return {
@@ -172,7 +191,7 @@ class ResearchEngine:
         for i in range(self.cfg.iterations):
             horizon = int(self.rng.choice([1, 3, 6, 12, 24]))
             y = self.target(df, horizon).reindex(X.index)
-            result = self.candidate(X, y, df['close'], horizon, i)
+            result = self.candidate(X, y, df['close'], horizon, i, df['high'], df['low'])
             result.update({'config': asdict(self.cfg), 'data_hash': data_hash, 'data_rows': len(df)})
             results.append(result)
             with (outp / 'experiment_log.jsonl').open('a', encoding='utf8') as f:
