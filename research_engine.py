@@ -59,6 +59,26 @@ class ResearchEngine:
             x[f'volume_z_{n}'] = (df['volume'] - vm) / (vs + 1e-12)
         x['range'] = ((df['high'] - df['low']) / close).clip(-1, 1)
         x['close_location'] = (close - df['low']) / (df['high'] - df['low'] + 1e-12)
+
+        # Advanced volatility features. All rolling statistics use only past/current bars.
+        log_hl = np.log((df['high'] + 1e-12) / (df['low'] + 1e-12))
+        log_co = np.log((close + 1e-12) / (df['open'] + 1e-12))
+        true_range = pd.concat([
+            df['high'] - df['low'],
+            (df['high'] - close.shift(1)).abs(),
+            (df['low'] - close.shift(1)).abs(),
+        ], axis=1).max(axis=1)
+        for n in [6, 12, 24, 48, 96]:
+            atr = true_range.rolling(n, min_periods=n).mean() / (close + 1e-12)
+            parkinson = np.sqrt((log_hl.pow(2).rolling(n, min_periods=n).mean()) / (4 * np.log(2)))
+            gk_term = (0.5 * log_hl.pow(2) - (2 * np.log(2) - 1) * log_co.pow(2)).clip(lower=0)
+            garman_klass = np.sqrt(gk_term.rolling(n, min_periods=n).mean())
+            realized = ret.pow(2).rolling(n, min_periods=n).sum().pow(0.5)
+            x[f'vol_adv_atr_{n}'] = atr
+            x[f'vol_adv_parkinson_{n}'] = parkinson
+            x[f'vol_adv_gk_{n}'] = garman_klass
+            x[f'vol_adv_realized_{n}'] = realized
+            x[f'vol_adv_ratio_{n}'] = realized / (realized.rolling(max(2, n * 4), min_periods=max(2, n * 4)).mean() + 1e-12)
         if 'funding_rate' in df:
             x['funding_rate'] = pd.to_numeric(df['funding_rate'], errors='coerce')
         if 'open_interest' in df:
