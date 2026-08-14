@@ -168,6 +168,7 @@ class ResearchEngine:
         elif self.cfg.feature_mode == 'reversion': keep = base + alt_reversion
         elif self.cfg.feature_mode == 'liquidity': keep = base + alt_liquidity
         elif self.cfg.feature_mode == 'technical': keep = base + [c for c in x.columns if c.startswith('ta_')]
+        elif self.cfg.feature_mode == 'minimal_technical': keep = base + ['ta_rsi_14', 'ta_macd_hist_pct']
         elif self.cfg.feature_mode == 'return_reversion': keep = base + alt_return + alt_reversion
         elif self.cfg.feature_mode == 'return_liquidity': keep = base + alt_return + alt_liquidity
         elif self.cfg.feature_mode == 'alternative_full': keep = base + alt_return + alt_reversion + alt_liquidity
