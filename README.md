@@ -28,6 +28,8 @@ python3 research_engine.py --csv data/btcusdt_1h.csv --iterations 20 --output ru
 | `derivatives_compare.py` | مقارنة HistGradientBoosting بين OHLCV وخصائص funding |
 | `external_derivatives_eval.py` | اختبار funding خارجي على يوليو |
 | `derivatives_report.md` | تقرير دمج funding وحساسية التكلفة |
+| `binance_derivatives_loader.py` | تنزيل ودمج funding وOpen Interest وorder-flow مع backward as-of وprovenance زمني |
+| `readiness_gate.py` | بوابة قبول مستقلة تمنع الإنتاج ما لم تجتز النتائج خارج العينة وحساسية التكلفة |
 | `root_cause_decision_report.md` | تقرير التحقيق الجذري والقرار النهائي |
 | `research_findings.md` | ملخص المراجع العلمية حول CPCV وDSR وتكاليف التنفيذ |
 | `index.html` | لوحة مراقبة محلية تعرض حالة دورة البحث، المقاييس، النماذج، والسجلات |
@@ -63,6 +65,18 @@ python3 binance_derivatives_loader.py \\
   --order-flow /path/to/taker_buy_sell.csv \\
   --output data/btcusdt_derivatives.csv \\
   --symbol BTCUSDT --start 2026-01-01 --end 2026-07-31
+```
+
+### بوابة الجهوزية
+
+لا ينبغي اعتبار نجاح الدمج دليلًا على صلاحية استراتيجية. تفحص `readiness_gate.py` نتائج walk-forward وحساسية 1x و2x للتكلفة والاختبار الخارجي، وتعيد `FAIL_REMAIN_PAPER_TRADING` عند فشل أي شرط. لا تسمح البوابة بقبول نموذج من شهر واحد، أو من متوسط Sharpe مرتفع مع عائد صافٍ سلبي، أو من أداء لا يتحمل مضاعفة التكلفة.
+
+```bash
+python3 readiness_gate.py \\
+  --walk-forward /path/to/derivatives_compare_summary.csv \\
+  --cost-summary /path/to/derivatives_cost_summary.csv \\
+  --external /path/to/external_derivatives_summary.csv \\
+  --output runs/readiness_gate.json
 ```
 
 لا ينبغي اعتبار نجاح الدمج دليلًا على صلاحية استراتيجية. يجب تشغيل `ml_walk_forward.py` و`robust_evaluation.py` على الناتج، مع تنفيذ T+1، وpurge، وتكاليف متعددة، واختبار خارجي منفصل. تعتمد بنية الأرشيفات على [Binance Public Data](https://github.com/binance/binance-public-data) و[Binance Data Collection](https://data.binance.vision/)، وتفاصيل الحقول الحية موثقة في [Binance Futures Market Data API](https://developers.binance.com/en/docs/derivatives/usds-margined-futures/market-data/rest-api).
