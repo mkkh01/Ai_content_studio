@@ -1,0 +1,70 @@
+{
+  "data_rows": 4344,
+  "feature_rows": 3865,
+  "aligned_rows": 3859,
+  "first_timestamp": "2026-01-01 00:00:00+00:00",
+  "last_timestamp": "2026-06-30 23:00:00+00:00",
+  "audit": [
+    {
+      "horizon": 1,
+      "bars": 4344,
+      "independent": 4342,
+      "mean_return": -8.099910633907943e-05,
+      "std_return": 0.0049854197922995,
+      "positive_fraction": 0.49216950713956703,
+      "autocorr_1": -0.007832622977430653,
+      "buyhold_sharpe_net": -1.524964921179797,
+      "momentum_direction_sharpe": -18.510384129048365
+    },
+    {
+      "horizon": 3,
+      "bars": 4344,
+      "independent": 1446,
+      "mean_return": -0.00024373912534659587,
+      "std_return": 0.008442879426733132,
+      "positive_fraction": 0.4896265560165975,
+      "autocorr_1": -0.012774334208911924,
+      "buyhold_sharpe_net": -1.564395168863903,
+      "momentum_direction_sharpe": -5.565528398329719
+    },
+    {
+      "horizon": 6,
+      "bars": 4344,
+      "independent": 722,
+      "mean_return": -0.00048252443053104437,
+      "std_return": 0.012080430877258604,
+      "positive_fraction": 0.5041551246537396,
+      "autocorr_1": -0.026418653045222118,
+      "buyhold_sharpe_net": -1.5306355877480051,
+      "momentum_direction_sharpe": -3.103860442355709
+    },
+    {
+      "horizon": 12,
+      "bars": 4344,
+      "independent": 360,
+      "mean_return": -0.001003652651863666,
+      "std_return": 0.01626629290601747,
+      "positive_fraction": 0.5138888888888888,
+      "autocorr_1": 0.0796431988044431,
+      "buyhold_sharpe_net": -1.6718790991029764,
+      "momentum_direction_sharpe": -1.098981195748764
+    },
+    {
+      "horizon": 24,
+      "bars": 4344,
+      "independent": 179,
+      "mean_return": -0.0018979418123657278,
+      "std_return": 0.024755805933489635,
+      "positive_fraction": 0.4748603351955307,
+      "autocorr_1": -0.03820670006347613,
+      "buyhold_sharpe_net": -1.4692427862327666,
+      "momentum_direction_sharpe": 0.15917985258414064
+    }
+  ],
+  "h6_train_end": "2026-04-27 09:00:00+00:00",
+  "h6_val_start": "2026-04-27 10:00:00+00:00",
+  "h6_last_train_label_end": "2026-04-27 15:00:00+00:00",
+  "h6_val_end": "2026-05-29 13:00:00+00:00",
+  "target_overlap_rows": 6,
+  "feature_decision_uses_close": true
+}

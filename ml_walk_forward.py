@@ -14,6 +14,7 @@ from research_engine import Config, ResearchEngine
 @dataclass
 class MLConfig:
     horizon: int = 6
+    execution_delay: int = 1
     windows: int = 4
     train_bars: int = 1200
     validation_bars: int = 300
@@ -65,6 +66,12 @@ def score_predictions(pred, actual, horizon, fee_bps, slippage_bps, threshold):
     }
 
 
+def executable_target(raw, horizon, execution_delay):
+    entry = raw['open'].shift(-execution_delay)
+    exit_ = raw['close'].shift(-(execution_delay + horizon))
+    return (exit_ / entry - 1).rename('target_gross')
+
+
 def model_candidates(kind, seed):
     if kind == 'elastic_net':
         return [
@@ -84,7 +91,7 @@ def run(path, out_dir, cfg: MLConfig):
                                    fee_bps=cfg.fee_bps, slippage_bps=cfg.slippage_bps))
     raw = engine.load(path)
     X = engine.features(raw)
-    y_gross = engine.target(raw, cfg.horizon).rename('target_gross')
+    y_gross = executable_target(raw, cfg.horizon, cfg.execution_delay)
     y_train = y_gross.copy()
     if cfg.target_cost_adjusted:
         cost = (cfg.fee_bps + cfg.slippage_bps) / 10000.0
@@ -98,13 +105,16 @@ def run(path, out_dir, cfg: MLConfig):
     for kind in ['elastic_net', 'hist_gradient_boosting']:
         for w in range(cfg.windows):
             start = w * cfg.test_bars
-            train_end = start + cfg.train_bars
-            val_end = train_end + cfg.validation_bars
-            test_end = val_end + cfg.test_bars
+            raw_train_end = start + cfg.train_bars
+            train_end = raw_train_end - cfg.horizon
+            val_start = raw_train_end
+            val_end = val_start + cfg.validation_bars
+            test_start = val_end + cfg.horizon
+            test_end = test_start + cfg.test_bars
             if test_end > len(X): break
             Xtr, ytr = X.iloc[start:train_end], y_train.iloc[start:train_end]
-            Xv, yv = X.iloc[train_end:val_end], y_train.iloc[train_end:val_end]
-            Xt, yt = X.iloc[val_end:test_end], y_gross.iloc[val_end:test_end]
+            Xv, yv = X.iloc[val_start:val_end], y_train.iloc[val_start:val_end]
+            Xt, yt = X.iloc[test_start:test_end], y_gross.iloc[test_start:test_end]
             best_model, best_val, best_threshold = None, -np.inf, None
             for candidate in model_candidates(kind, cfg.seed + w):
                 candidate.fit(Xtr, ytr)
@@ -134,10 +144,10 @@ def run(path, out_dir, cfg: MLConfig):
 if __name__ == '__main__':
     p=argparse.ArgumentParser()
     p.add_argument('--csv', required=True); p.add_argument('--output', default='ml_runs')
-    p.add_argument('--horizon', type=int, default=6); p.add_argument('--windows', type=int, default=4)
+    p.add_argument('--horizon', type=int, default=6); p.add_argument('--execution-delay', type=int, default=1); p.add_argument('--windows', type=int, default=4)
     p.add_argument('--train-bars', type=int, default=1200); p.add_argument('--validation-bars', type=int, default=300); p.add_argument('--test-bars', type=int, default=300)
     p.add_argument('--fee-bps', type=float, default=6.0); p.add_argument('--slippage-bps', type=float, default=4.0)
     p.add_argument('--uncertainty-multiple', type=float, default=0.5)
     p.add_argument('--feature-mode', default='liquidity')
     args=p.parse_args()
-    run(args.csv, args.output, MLConfig(horizon=args.horizon, windows=args.windows, train_bars=args.train_bars, validation_bars=args.validation_bars, test_bars=args.test_bars, fee_bps=args.fee_bps, slippage_bps=args.slippage_bps, uncertainty_multiple=args.uncertainty_multiple, feature_mode=args.feature_mode))
+    run(args.csv, args.output, MLConfig(horizon=args.horizon, execution_delay=args.execution_delay, windows=args.windows, train_bars=args.train_bars, validation_bars=args.validation_bars, test_bars=args.test_bars, fee_bps=args.fee_bps, slippage_bps=args.slippage_bps, uncertainty_multiple=args.uncertainty_multiple, feature_mode=args.feature_mode))
