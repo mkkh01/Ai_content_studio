@@ -160,6 +160,30 @@ class ResearchEngine:
         for c in df.columns:
             if c.startswith(('funding_', 'taker_', 'oi_', 'basis_', 'liquidation_')) and c not in x:
                 x[c] = pd.to_numeric(df[c], errors='coerce')
+        # Derivatives dynamics: only trailing transformations of observations
+        # available at t. These are intentionally compact to reduce overfit.
+        if 'oi_contracts' in x:
+            oi = x['oi_contracts'].replace(0, np.nan)
+            x['oi_ret_1'] = oi.pct_change(1, fill_method=None)
+            x['oi_ret_6'] = oi.pct_change(6, fill_method=None)
+            x['oi_z_24'] = (oi - oi.rolling(24, min_periods=24).mean()) / (oi.rolling(24, min_periods=24).std(ddof=0) + 1e-12)
+            x['price_oi_divergence_6'] = np.sign(ret.rolling(6, min_periods=6).sum()) * x['oi_ret_6']
+        if 'oi_value' in x:
+            oiv = x['oi_value'].replace(0, np.nan)
+            x['oi_value_ret_6'] = oiv.pct_change(6, fill_method=None)
+            x['oi_value_z_24'] = (oiv - oiv.rolling(24, min_periods=24).mean()) / (oiv.rolling(24, min_periods=24).std(ddof=0) + 1e-12)
+        if 'taker_imbalance' in x:
+            imb = x['taker_imbalance']
+            x['taker_imbalance_mean_6'] = imb.rolling(6, min_periods=6).mean()
+            x['taker_imbalance_mean_24'] = imb.rolling(24, min_periods=24).mean()
+            x['taker_imbalance_shock'] = imb - imb.rolling(24, min_periods=24).mean()
+        if 'taker_buy_sell_ratio' in x:
+            ratio = x['taker_buy_sell_ratio'].replace(0, np.nan)
+            x['taker_ratio_log'] = np.log(ratio.clip(lower=1e-6))
+            x['taker_ratio_z_24'] = (ratio - ratio.rolling(24, min_periods=24).mean()) / (ratio.rolling(24, min_periods=24).std(ddof=0) + 1e-12)
+        if 'funding_rate' in x:
+            fr = x['funding_rate']
+            x['funding_z_24'] = (fr - fr.rolling(24, min_periods=24).mean()) / (fr.rolling(24, min_periods=24).std(ddof=0) + 1e-12)
         x = x.replace([np.inf, -np.inf], np.nan).dropna()
         external = [c for c in x.columns if c.startswith(('funding_', 'taker_', 'oi_', 'basis_', 'liquidation_'))]
         base = [c for c in x.columns if c not in external and not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_') or c.startswith('alt_') or c.startswith('ta_'))]

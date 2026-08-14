@@ -30,6 +30,8 @@ python3 research_engine.py --csv data/btcusdt_1h.csv --iterations 20 --output ru
 | `derivatives_report.md` | تقرير دمج funding وحساسية التكلفة |
 | `binance_derivatives_loader.py` | تنزيل ودمج funding وOpen Interest وorder-flow مع backward as-of وprovenance زمني |
 | `readiness_gate.py` | بوابة قبول مستقلة تمنع الإنتاج ما لم تجتز النتائج خارج العينة وحساسية التكلفة |
+| `extended_monthly_external_eval.py` | اختبار خارجي شهري متتابع دون إعادة ملاءمة على الشهر الجاري |
+| `signal_improvement_report.md` | نتائج تحسينات OI وorder-flow وآفاق 6/12/24 ساعة وحساسية التكلفة |
 | `root_cause_decision_report.md` | تقرير التحقيق الجذري والقرار النهائي |
 | `research_findings.md` | ملخص المراجع العلمية حول CPCV وDSR وتكاليف التنفيذ |
 | `index.html` | لوحة مراقبة محلية تعرض حالة دورة البحث، المقاييس، النماذج، والسجلات |
