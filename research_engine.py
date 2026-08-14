@@ -157,8 +157,12 @@ class ResearchEngine:
             x['funding_rate'] = pd.to_numeric(df['funding_rate'], errors='coerce')
         if 'open_interest' in df:
             x['oi_change'] = pd.to_numeric(df['open_interest'], errors='coerce').pct_change()
+        for c in df.columns:
+            if c.startswith(('funding_', 'taker_', 'oi_', 'basis_', 'liquidation_')) and c not in x:
+                x[c] = pd.to_numeric(df[c], errors='coerce')
         x = x.replace([np.inf, -np.inf], np.nan).dropna()
-        base = [c for c in x.columns if not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_') or c.startswith('alt_') or c.startswith('ta_'))]
+        external = [c for c in x.columns if c.startswith(('funding_', 'taker_', 'oi_', 'basis_', 'liquidation_'))]
+        base = [c for c in x.columns if c not in external and not (c.startswith('trend_') or c.startswith('mtf_') or c.startswith('regime_') or c.startswith('alt_') or c.startswith('ta_'))]
         core = [c for c in x.columns if c in {'trend_ema_gap_12_48','trend_ema_slope_12','trend_directional_efficiency','trend_adx_proxy','mtf_ret_96','mtf_vol_96','regime_trend_score','regime_high_vol','regime_sideways'}]
         alt_return = [c for c in x.columns if any(c.startswith(f'alt_{p}') for p in ['norm_ret_','return_consistency_','positive_fraction_','downside_semivar_','upside_semivar_'])]
         alt_reversion = [c for c in x.columns if c.startswith('alt_range_position_') or c.startswith('alt_vwap_distance_')]
@@ -169,6 +173,7 @@ class ResearchEngine:
         elif self.cfg.feature_mode == 'liquidity': keep = base + alt_liquidity
         elif self.cfg.feature_mode == 'technical': keep = base + [c for c in x.columns if c.startswith('ta_')]
         elif self.cfg.feature_mode == 'minimal_technical': keep = base + ['ta_rsi_14', 'ta_macd_hist_pct']
+        elif self.cfg.feature_mode == 'derivatives': keep = base + external
         elif self.cfg.feature_mode == 'return_reversion': keep = base + alt_return + alt_reversion
         elif self.cfg.feature_mode == 'return_liquidity': keep = base + alt_return + alt_liquidity
         elif self.cfg.feature_mode == 'alternative_full': keep = base + alt_return + alt_reversion + alt_liquidity
