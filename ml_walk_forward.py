@@ -22,6 +22,8 @@ class MLConfig:
     slippage_bps: float = 4.0
     bars_per_year: int = 24 * 365
     neutral_cost_multiple: float = 1.5
+    uncertainty_multiple: float = 0.5
+    target_cost_adjusted: bool = True
     feature_mode: str = 'liquidity'
     seed: int = 42
 
@@ -42,7 +44,8 @@ def score_predictions(pred, actual, horizon, fee_bps, slippage_bps, threshold):
     cost = (fee_bps + slippage_bps) / 10000.0
     signals = np.where(np.abs(pred) > threshold, np.sign(pred), 0.0)
     net = signals * actual - (signals != 0) * cost
-    benchmark = actual - cost
+    benchmark = actual.copy()
+    if len(benchmark): benchmark[0] -= cost
     annual_factor = 24 * 365 / max(1, horizon)
     sharpe = net_sharpe(net, annual_factor)
     benchmark_sharpe = net_sharpe(benchmark, annual_factor)
@@ -81,9 +84,16 @@ def run(path, out_dir, cfg: MLConfig):
                                    fee_bps=cfg.fee_bps, slippage_bps=cfg.slippage_bps))
     raw = engine.load(path)
     X = engine.features(raw)
-    y = engine.target(raw, cfg.horizon).rename('target')
-    aligned = X.join(y).join(raw['close'].rename('close')).dropna()
-    X, y, close = aligned.drop(columns=['target','close']), aligned['target'], aligned['close']
+    y_gross = engine.target(raw, cfg.horizon).rename('target_gross')
+    y_train = y_gross.copy()
+    if cfg.target_cost_adjusted:
+        cost = (cfg.fee_bps + cfg.slippage_bps) / 10000.0
+        y_train = (y_gross - np.sign(y_gross) * cost).rename('target_train')
+    else:
+        y_train = y_train.rename('target_train')
+    aligned = X.join(y_train).join(y_gross).join(raw['close'].rename('close')).dropna()
+    X = aligned.drop(columns=['target_train','target_gross','close'])
+    y_train, y_gross, close = aligned['target_train'], aligned['target_gross'], aligned['close']
     rows=[]
     for kind in ['elastic_net', 'hist_gradient_boosting']:
         for w in range(cfg.windows):
@@ -92,21 +102,21 @@ def run(path, out_dir, cfg: MLConfig):
             val_end = train_end + cfg.validation_bars
             test_end = val_end + cfg.test_bars
             if test_end > len(X): break
-            Xtr, ytr = X.iloc[start:train_end], y.iloc[start:train_end]
-            Xv, yv = X.iloc[train_end:val_end], y.iloc[train_end:val_end]
-            Xt, yt = X.iloc[val_end:test_end], y.iloc[val_end:test_end]
-            train_std = float(ytr.std())
-            threshold = max((cfg.fee_bps + cfg.slippage_bps) / 10000 * cfg.neutral_cost_multiple,
-                            0.25 * train_std)
-            best_model, best_val = None, -np.inf
+            Xtr, ytr = X.iloc[start:train_end], y_train.iloc[start:train_end]
+            Xv, yv = X.iloc[train_end:val_end], y_train.iloc[train_end:val_end]
+            Xt, yt = X.iloc[val_end:test_end], y_gross.iloc[val_end:test_end]
+            best_model, best_val, best_threshold = None, -np.inf, None
             for candidate in model_candidates(kind, cfg.seed + w):
                 candidate.fit(Xtr, ytr)
                 val_pred = candidate.predict(Xv)
+                residual_std = float(np.std(np.asarray(yv) - np.asarray(val_pred), ddof=1)) if len(yv) > 1 else float(ytr.std())
+                threshold = max((cfg.fee_bps + cfg.slippage_bps) / 10000 * cfg.neutral_cost_multiple,
+                                cfg.uncertainty_multiple * residual_std)
                 val_score = score_predictions(val_pred, yv, cfg.horizon, cfg.fee_bps, cfg.slippage_bps, threshold)
                 if val_score['relative_sharpe'] > best_val:
-                    best_model, best_val = candidate, val_score['relative_sharpe']
+                    best_model, best_val, best_threshold = candidate, val_score['relative_sharpe'], threshold
             test_pred = best_model.predict(Xt)
-            test_score = score_predictions(test_pred, yt, cfg.horizon, cfg.fee_bps, cfg.slippage_bps, threshold)
+            test_score = score_predictions(test_pred, yt, cfg.horizon, cfg.fee_bps, cfg.slippage_bps, best_threshold)
             rows.append({'model':kind,'window':w+1,'validation_relative_sharpe':best_val,
                          **{f'test_{k}':v for k,v in test_score.items()}})
     result = pd.DataFrame(rows)
@@ -125,6 +135,9 @@ if __name__ == '__main__':
     p=argparse.ArgumentParser()
     p.add_argument('--csv', required=True); p.add_argument('--output', default='ml_runs')
     p.add_argument('--horizon', type=int, default=6); p.add_argument('--windows', type=int, default=4)
+    p.add_argument('--train-bars', type=int, default=1200); p.add_argument('--validation-bars', type=int, default=300); p.add_argument('--test-bars', type=int, default=300)
+    p.add_argument('--fee-bps', type=float, default=6.0); p.add_argument('--slippage-bps', type=float, default=4.0)
+    p.add_argument('--uncertainty-multiple', type=float, default=0.5)
     p.add_argument('--feature-mode', default='liquidity')
     args=p.parse_args()
-    run(args.csv, args.output, MLConfig(horizon=args.horizon, windows=args.windows, feature_mode=args.feature_mode))
+    run(args.csv, args.output, MLConfig(horizon=args.horizon, windows=args.windows, train_bars=args.train_bars, validation_bars=args.validation_bars, test_bars=args.test_bars, fee_bps=args.fee_bps, slippage_bps=args.slippage_bps, uncertainty_multiple=args.uncertainty_multiple, feature_mode=args.feature_mode))
